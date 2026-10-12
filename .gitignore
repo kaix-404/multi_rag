@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+*.log
+
+# derived artifacts
+data/corpus/
+data/assets/
+data/pages/
+data/index/
+data/results/*
+!data/results/benchmark.md
+!data/results/metrics.json
+!data/results/dataset.json
+spec.txt
+tmp/
+
+# secrets / caches
+.env
+.cache/
+.pytest_cache/
+.streamlit/
