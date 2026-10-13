@@ -16,29 +16,36 @@ from .rag import LLMClient, describe_figures
 
 
 def cmd_ingest(settings: Settings | None = None, limit: int | None = None,
-               render_dpi: int = 144) -> dict:
+               render_dpi: int = 144, from_items: bool = False) -> dict:
     settings = settings or load_settings()
     t0 = time.perf_counter()
-    pdfs = sorted(settings.corpus_dir.glob("*.pdf"))
-    if limit:
-        pdfs = pdfs[:limit]
-    if not pdfs:
-        raise SystemExit(f"No PDFs found in {settings.corpus_dir}. "
-                         f"Run `python scripts/download_corpus.py` first.")
 
-    metas, items = [], []
-    from .ingestion.parser import parse_pdf
-    for pdf in pdfs:
-        print(f"[ingest] parsing {pdf.name} ...")
-        meta, it = parse_pdf(pdf, settings.assets_dir, settings.pages_dir,
-                             render_dpi=render_dpi)
-        metas.append(meta)
-        items.extend(it)
+    if from_items and (settings.index_dir / "parsed_items.jsonl").exists():
+        print("[ingest] re-chunking from saved parsed items (--from-items)")
+        from .eval.harness_io import load_docs_meta, load_parsed_items
+        metas = load_docs_meta(settings)
+        items = load_parsed_items(settings)
+    else:
+        pdfs = sorted(settings.corpus_dir.glob("*.pdf"))
+        if limit:
+            pdfs = pdfs[:limit]
+        if not pdfs:
+            raise SystemExit(f"No PDFs found in {settings.corpus_dir}. "
+                             f"Run `python scripts/download_corpus.py` first.")
 
-    settings.index_dir.mkdir(parents=True, exist_ok=True)
-    (settings.index_dir / "docs.json").write_text(
-        json.dumps(metas, indent=2, ensure_ascii=False), encoding="utf-8")
-    save_parsed_items(items, settings.index_dir / "parsed_items.jsonl")
+        metas, items = [], []
+        from .ingestion.parser import parse_pdf
+        for pdf in pdfs:
+            print(f"[ingest] parsing {pdf.name} ...")
+            meta, it = parse_pdf(pdf, settings.assets_dir, settings.pages_dir,
+                                 render_dpi=render_dpi)
+            metas.append(meta)
+            items.extend(it)
+
+        settings.index_dir.mkdir(parents=True, exist_ok=True)
+        (settings.index_dir / "docs.json").write_text(
+            json.dumps(metas, indent=2, ensure_ascii=False), encoding="utf-8")
+        save_parsed_items(items, settings.index_dir / "parsed_items.jsonl")
 
     chunks = chunk_documents(items, settings)
     llm = LLMClient(settings)
@@ -83,6 +90,7 @@ def cmd_index(settings: Settings | None = None) -> dict:
     vectors = embedder.embed(texts)
 
     store = open_store(settings, embedder.dim)
+    store.reset()  # drop vectors from any previous chunking
     store.upsert([c.chunk_id for c in chunks], vectors)
 
     bm25 = BM25Index.build([c.chunk_id for c in chunks], texts)

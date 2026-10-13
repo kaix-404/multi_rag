@@ -24,6 +24,10 @@ class VectorStore:
     def upsert(self, chunk_ids: list[str], vectors: np.ndarray) -> None:
         raise NotImplementedError
 
+    def reset(self) -> None:
+        """Drop all vectors (called before a full re-index)."""
+        raise NotImplementedError
+
     def search(self, vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         raise NotImplementedError
 
@@ -75,6 +79,12 @@ class LocalVectorStore(VectorStore):
             self.vectors = block if self.vectors is None else np.vstack([self.vectors, block])
         np.save(self._vec_path(), self.vectors)
         self._ids_path().write_text(json.dumps(self.ids), encoding="utf-8")
+
+    def reset(self) -> None:
+        self.ids: list[str] = []
+        self.vectors: np.ndarray | None = None
+        self._vec_path().unlink(missing_ok=True)
+        self._ids_path().unlink(missing_ok=True)
 
     def search(self, vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         if self.vectors is None or len(self.ids) == 0:
@@ -131,6 +141,16 @@ class QdrantVectorStore(VectorStore):
 
     def _save_id_map(self) -> None:
         self._map_path().write_text(json.dumps(self._ids), encoding="utf-8")
+
+    def reset(self) -> None:
+        from qdrant_client import models
+
+        self.client.delete_collection(self.collection)
+        self.client.create_collection(
+            collection_name=self.collection,
+            vectors_config=models.VectorParams(size=self.dim,
+                                               distance=models.Distance.COSINE),
+        )
 
     def search(self, vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         res = self.client.query_points(

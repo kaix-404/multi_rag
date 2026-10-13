@@ -161,8 +161,44 @@ def _chunk_atomic(item: ParsedItem, counter: list[int]) -> list[Chunk]:
     return [ch]
 
 
+TINY_TEXT_CHARS = 120  # row labels / orphaned fragments below this get merged
+
+
+def _merge_bbox(items: list[ParsedItem]) -> tuple[float, float, float, float]:
+    return (
+        min(it.bbox[0] for it in items),
+        min(it.bbox[1] for it in items),
+        max(it.bbox[2] for it in items),
+        max(it.bbox[3] for it in items),
+    )
+
+
+def _coalesce_text(items: list[ParsedItem]) -> ParsedItem:
+    """Fuse a run of small text blocks (typical 10-K row-label leakage) into
+    one paragraph-level item so retrievers see context, not label shards."""
+    head = items[0]
+    text = " ".join(it.text for it in items)
+    return ParsedItem(
+        doc_id=head.doc_id,
+        page_number=head.page_number,
+        chunk_type="text",
+        text=text,
+        bbox=_merge_bbox(items),
+        page_size=head.page_size,
+        section=next((it.section for it in reversed(items) if it.section), head.section),
+        order=items[0].order,
+        meta={"coalesced_blocks": len(items)},
+    )
+
+
 def chunk_documents(items: list[ParsedItem], settings: Settings | None = None) -> list[Chunk]:
-    """Chunk a parsed corpus preserving document/page order."""
+    """Chunk a parsed corpus preserving document/page order.
+
+    Small text blocks (single row labels, orphaned headings, footer shards)
+    are buffered and fused into the next substantial paragraph on the same
+    page, which prevents short label fragments from dominating BM25/dense
+    rankings in financial filings.
+    """
     by_doc: dict[str, list[ParsedItem]] = {}
     for it in items:
         by_doc.setdefault(it.doc_id, []).append(it)
@@ -171,11 +207,22 @@ def chunk_documents(items: list[ParsedItem], settings: Settings | None = None) -
     for doc_id in sorted(by_doc):
         doc_items = sorted(by_doc[doc_id], key=lambda x: (x.page_number, x.order))
         counter = [0]
+        pending: list[ParsedItem] = []
         for item in doc_items:
             if item.chunk_type == "text":
-                chunks.extend(_chunk_text_item(item, counter))
+                if len(item.text) < TINY_TEXT_CHARS or item.meta.get("is_heading"):
+                    pending.append(item)
+                    continue
+                merged = _coalesce_text(pending + [item]) if pending else item
+                chunks.extend(_chunk_text_item(merged, counter))
+                pending = []
             else:
+                if pending:
+                    chunks.extend(_chunk_text_item(_coalesce_text(pending), counter))
+                    pending = []
                 chunks.extend(_chunk_atomic(item, counter))
+        if pending:
+            chunks.extend(_chunk_text_item(_coalesce_text(pending), counter))
     return chunks
 
 

@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("ingest", help="parse PDFs -> chunks (tables/figures/text)")
     p.add_argument("--limit", type=int, default=None, help="only first N PDFs")
     p.add_argument("--dpi", type=int, default=144, help="page render DPI")
+    p.add_argument("--from-items", action="store_true",
+                   help="re-chunk from saved parsed_items.jsonl (skip PDF parsing)")
 
     sub.add_parser("index", help="embed chunks + build BM25 + upsert store")
 
@@ -44,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "ingest":
         from .pipeline import cmd_ingest
-        cmd_ingest(limit=args.limit, render_dpi=args.dpi)
+        cmd_ingest(limit=args.limit, render_dpi=args.dpi, from_items=args.from_items)
     elif args.cmd == "index":
         from .pipeline import cmd_index
         cmd_index()

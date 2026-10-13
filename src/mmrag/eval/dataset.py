@@ -57,6 +57,7 @@ def _to_number(v: str):
 def _tabular_questions(chunks: list[Chunk], labels: dict[str, str],
                        rng: random.Random, n: int) -> list[dict]:
     out: list[dict] = []
+    seen_rows: set[tuple[str, str]] = set()
     candidates = [c for c in chunks if c.chunk_type == "table" and "|" in c.text]
     rng.shuffle(candidates)
     for c in candidates:
@@ -65,15 +66,23 @@ def _tabular_questions(chunks: list[Chunk], labels: dict[str, str],
         lines = [l for l in c.text.splitlines() if l.strip().startswith("|")]
         if len(lines) < 3:
             continue
-        header = [_clean_cell(x) for x in lines[0].strip("|").split("|")]
-        # year columns
-        year_cols = [(i, _YEAR_RE.search(h).group(0)) for i, h in enumerate(header)
-                     if _YEAR_RE.search(h)]
-        rows = []
-        for line in lines[2:]:
-            cells = [_clean_cell(x) for x in line.strip("|").split("|")]
-            if len(cells) == len(header) and cells[0]:
-                rows.append(cells)
+
+        def _cells(line: str) -> list[str]:
+            return [_clean_cell(x) for x in line.strip().strip("|").split("|")]
+
+        header = _cells(lines[0])
+        body = [_cells(l) for l in lines[2:]]
+        # year columns: stitched tables often put the "Three Years Ended …"
+        # row *below* the caption, so scan header + first body rows
+        year_cols: list[tuple[int, str]] = []
+        seen: set[int] = set()
+        for row in [header] + body[:3]:
+            for i, cell in enumerate(row):
+                m = _YEAR_RE.search(cell)
+                if m and i not in seen:
+                    year_cols.append((i, m.group(0)))
+                    seen.add(i)
+        rows = [r for r in body if len(r) == len(header) and r[0]]
         numeric_rows = [r for r in rows
                         if sum(1 for cell in r[1:] if _to_number(cell) is not None)
                         >= max(2, len(header) - 2)]
@@ -102,22 +111,30 @@ def _tabular_questions(chunks: list[Chunk], labels: dict[str, str],
                 "gold_chunk_ids": [c.chunk_id],
             })
             continue
-        # single-value lookup
-        row = numeric_rows[0]
-        col_idx = next((i for i in range(1, len(header)) if _to_number(row[i]) is not None), None)
-        if col_idx is None:
-            continue
-        val = _to_number(row[col_idx])
-        unit = "%" if "%" in header[col_idx] or "%" in row[col_idx] else ""
-        out.append({
-            "id": f"tab-{len(out)+1:02d}",
-            "category": "tabular",
-            "question": (f"According to {label}, what value is reported for "
-                         f"'{row[0]}' in column '{header[col_idx]}'?"),
-            "ground_truth": f"{val:g}{unit}",
-            "doc_id": c.doc_id, "page_number": c.page_number,
-            "gold_chunk_ids": [c.chunk_id],
-        })
+        # single-value lookup (tables whose year header lives outside the
+        # ruled grid — common in printed 10-Ks — still make answerable questions)
+        for row in numeric_rows:
+            if (c.doc_id, row[0]) in seen_rows:
+                continue
+            col_idx = next((i for i in range(1, len(header))
+                            if _to_number(row[i]) is not None), None)
+            if col_idx is None:
+                continue
+            val = _to_number(row[col_idx])
+            caption = header[0].strip()
+            where = (f"the '{caption}' table" if caption
+                     else f"the table on page {c.page_number}")
+            seen_rows.add((c.doc_id, row[0]))
+            out.append({
+                "id": f"tab-{len(out)+1:02d}",
+                "category": "tabular",
+                "question": (f"According to {label}, what value is reported for "
+                             f"'{row[0]}' in {where}?"),
+                "ground_truth": f"{val:g}",
+                "doc_id": c.doc_id, "page_number": c.page_number,
+                "gold_chunk_ids": [c.chunk_id],
+            })
+            break  # one question per table keeps the suite diverse
     return out
 
 

@@ -302,6 +302,64 @@ def _table_to_markdown(grid: list[list]) -> str:
     return "\n".join(lines)
 
 
+def _stitch_rows(tables) -> list[dict]:
+    """Reassemble vertically-split tables.
+
+    Financial PDFs (especially HTML printed to PDF) often have horizontal
+    rules but no vertical rules, so pdfplumber returns one "table" per row.
+    Rows with the same horizontal span and small vertical gaps are stitched
+    back into a single grid.
+    """
+    entries = []
+    for tbl in tables:
+        try:
+            grid = tbl.extract()
+        except Exception:
+            continue
+        if not grid:
+            continue
+        entries.append({"bbox": tuple(float(v) for v in tbl.bbox), "rows": grid})
+    entries.sort(key=lambda e: (e["bbox"][1], e["bbox"][0]))
+
+    clusters: list[list[dict]] = []
+    for e in entries:
+        placed = False
+        for cl in clusters:
+            b = cl[-1]["bbox"]
+            w = min(e["bbox"][2] - e["bbox"][0], b[2] - b[0])
+            h_ov = min(e["bbox"][2], b[2]) - max(e["bbox"][0], b[0])
+            gap = e["bbox"][1] - b[3]
+            if w > 0 and h_ov >= 0.6 * w and -4 <= gap <= 26:
+                cl.append(e)
+                placed = True
+                break
+        if not placed:
+            clusters.append([e])
+
+    out = []
+    for cl in clusters:
+        rows = [r for e in cl for r in e["rows"]]
+        out.append({
+            "bbox": (min(e["bbox"][0] for e in cl),
+                     min(e["bbox"][1] for e in cl),
+                     max(e["bbox"][2] for e in cl),
+                     max(e["bbox"][3] for e in cl)),
+            "rows": rows,
+        })
+    return out
+
+
+def _grid_quality(rows: list[list]) -> bool:
+    """Reject fragments: need >=2 rows, >=2 columns and real content."""
+    if len(rows) < 2:
+        return False
+    width = max(len(r) for r in rows)
+    if width < 2:
+        return False
+    filled = sum(1 for r in rows if any(_cell_to_md(c) for c in r))
+    return filled >= 2
+
+
 def _extract_tables(page_plumber, doc_id: str, pno: int,
                     page_size: tuple[float, float], section: str,
                     order_start: int) -> tuple[list[ParsedItem], list[tuple], int]:
@@ -312,17 +370,14 @@ def _extract_tables(page_plumber, doc_id: str, pno: int,
         found = page_plumber.find_tables()
     except Exception:
         found = []
-    for ti, tbl in enumerate(found):
-        try:
-            grid = tbl.extract()
-        except Exception:
-            continue
-        if not grid or len(grid) < 2:
+    for ti, tbl in enumerate(_stitch_rows(found)):
+        grid = tbl["rows"]
+        if not _grid_quality(grid):
             continue
         md = _table_to_markdown(grid)
         if len(md) < 40:
             continue
-        bbox = tuple(float(v) for v in tbl.bbox)  # (x0, top, x1, bottom)
+        bbox = tbl["bbox"]
         bboxes.append(bbox)
         items.append(ParsedItem(
             doc_id=doc_id, page_number=pno, chunk_type="table", text=md,
@@ -356,12 +411,14 @@ def parse_pdf(pdf_path: Path, assets_dir: Path, pages_dir: Path,
             page_size = (float(fpage.rect.width), float(fpage.rect.height))
             page_sizes[str(pno + 1)] = [page_size[0], page_size[1]]
 
-            # rendered page PNG for bbox-overlay frontend
-            try:
-                pix = fpage.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
-                pix.save(str(pages_dir / f"{doc_id}_p{pno + 1}.png"))
-            except Exception:
-                pass
+            # rendered page PNG for bbox-overlay frontend (skip when cached)
+            page_png = pages_dir / f"{doc_id}_p{pno + 1}.png"
+            if not page_png.exists():
+                try:
+                    pix = fpage.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+                    pix.save(str(page_png))
+                except Exception:
+                    pass
 
             ppage = plumb_doc.pages[pno] if pno < len(plumb_doc.pages) else None
             if ppage is not None:

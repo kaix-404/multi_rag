@@ -1,0 +1,456 @@
+{
+  "version": 1,
+  "seed": 42,
+  "counts": {
+    "factual": 15,
+    "tabular": 15,
+    "visual": 10
+  },
+  "target": {
+    "factual": 15,
+    "tabular": 15,
+    "visual": 10
+  },
+  "items": [
+    {
+      "id": "tab-01",
+      "category": "tabular",
+      "question": "According to AAPL_2022, what value is reported for 'Repayments of commercial paper (7,257)' in the 'Proceeds from/(Repayments of) commercial paper, net $ 5,264' table?",
+      "ground_truth": "-6567",
+      "doc_id": "AAPL_2022-51832e26dd",
+      "page_number": 48,
+      "gold_chunk_ids": [
+        "AAPL_2022-51832e26dd:p48:305"
+      ]
+    },
+    {
+      "id": "tab-02",
+      "category": "tabular",
+      "question": "According to AAPL_2023, what value is reported for 'Repayments of commercial paper (2,645)' in the 'Proceeds from/(Repayments of) commercial paper, net $ (1,333)' table?",
+      "ground_truth": "-7257",
+      "doc_id": "AAPL_2023-7eca92b08b",
+      "page_number": 46,
+      "gold_chunk_ids": [
+        "AAPL_2023-7eca92b08b:p46:282"
+      ]
+    },
+    {
+      "id": "tab-03",
+      "category": "tabular",
+      "question": "According to AAPL_2019, what value is reported for 'Deferred revenue' in the 'Amortization and depreciation' table?",
+      "ground_truth": "1372",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 48,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p48:355"
+      ]
+    },
+    {
+      "id": "tab-04",
+      "category": "tabular",
+      "question": "According to AAPL_2021, what value is reported for 'Other countries' in the 'U.S.' table?",
+      "ground_truth": "3716",
+      "doc_id": "AAPL_2021-f82c5fffdd",
+      "page_number": 54,
+      "gold_chunk_ids": [
+        "AAPL_2021-f82c5fffdd:p54:359"
+      ]
+    },
+    {
+      "id": "tab-05",
+      "category": "tabular",
+      "question": "According to AAPL_2019, what value is reported for 'Repayments of commercial paper' in the 'Proceeds from/(Repayments of) commercial paper, net' table?",
+      "ground_truth": "-16603",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 50,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p50:366"
+      ]
+    },
+    {
+      "id": "tab-06",
+      "category": "tabular",
+      "question": "According to AAPL_2020, what value is reported for 'Other income/(expense), net' in the 'Foreign exchange contracts Total net sales' table?",
+      "ground_truth": "-604",
+      "doc_id": "AAPL_2020-11e0948c77",
+      "page_number": 53,
+      "gold_chunk_ids": [
+        "AAPL_2020-11e0948c77:p53:352"
+      ]
+    },
+    {
+      "id": "tab-07",
+      "category": "tabular",
+      "question": "According to AAPL_2020, what value is reported for 'Share-based compensation expense 6,829' in the 'Operating activities:' table?",
+      "ground_truth": "6068",
+      "doc_id": "AAPL_2020-11e0948c77",
+      "page_number": 38,
+      "gold_chunk_ids": [
+        "AAPL_2020-11e0948c77:p38:243"
+      ]
+    },
+    {
+      "id": "tab-08",
+      "category": "tabular",
+      "question": "According to AAPL_2019, what value is reported for 'Term debt' in the 'Accounts payable' table?",
+      "ground_truth": "10260",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 34,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p34:250"
+      ]
+    },
+    {
+      "id": "tab-09",
+      "category": "tabular",
+      "question": "According to AAPL_2021, what value is reported for 'Net income 94,680' in the 'Operating activities:' table?",
+      "ground_truth": "57411",
+      "doc_id": "AAPL_2021-f82c5fffdd",
+      "page_number": 36,
+      "gold_chunk_ids": [
+        "AAPL_2021-f82c5fffdd:p36:230"
+      ]
+    },
+    {
+      "id": "tab-10",
+      "category": "tabular",
+      "question": "According to AAPL_2020, what value is reported for 'Total non-current portion of term debt' in the 'Hedge accounting fair value adjustments' table?",
+      "ground_truth": "98667",
+      "doc_id": "AAPL_2020-11e0948c77",
+      "page_number": 52,
+      "gold_chunk_ids": [
+        "AAPL_2020-11e0948c77:p52:339"
+      ]
+    },
+    {
+      "id": "tab-11",
+      "category": "tabular",
+      "question": "According to AAPL_2019, what value is reported for 'Other countries' in the 'U.S.' table?",
+      "ground_truth": "3603",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 57,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p57:429"
+      ]
+    },
+    {
+      "id": "tab-12",
+      "category": "tabular",
+      "question": "According to AAPL_2020, what value is reported for 'Gross property, plant and equipment' in the 'Machinery, equipment and internal-use software' table?",
+      "ground_truth": "103526",
+      "doc_id": "AAPL_2020-11e0948c77",
+      "page_number": 48,
+      "gold_chunk_ids": [
+        "AAPL_2020-11e0948c77:p48:319"
+      ]
+    },
+    {
+      "id": "tab-13",
+      "category": "tabular",
+      "question": "According to AAPL_2019, what value is reported for 'Gross property, plant and equipment' in the 'Machinery, equipment and internal-use software' table?",
+      "ground_truth": "95957",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 46,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p46:342"
+      ]
+    },
+    {
+      "id": "tab-14",
+      "category": "tabular",
+      "question": "According to AAPL_2019, what value is reported for 'Marketable securities' in the 'Current assets:' table?",
+      "ground_truth": "51713",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 34,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p34:248"
+      ]
+    },
+    {
+      "id": "tab-15",
+      "category": "tabular",
+      "question": "According to AAPL_2021, what value is reported for 'Repayments of commercial paper' in the 'Proceeds from/(Repayments of) commercial paper, net' table?",
+      "ground_truth": "-6567",
+      "doc_id": "AAPL_2021-f82c5fffdd",
+      "page_number": 47,
+      "gold_chunk_ids": [
+        "AAPL_2021-f82c5fffdd:p47:314"
+      ]
+    },
+    {
+      "id": "fact-01",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from MSFT_2020: \"_____ 18, 2019, our Board of Directors approved a share repurchase program authorizing up to $40.0 billion in share repurchases.\"",
+      "ground_truth": "On September",
+      "doc_id": "MSFT_2020-390a3a7102",
+      "page_number": 89,
+      "gold_chunk_ids": [
+        "MSFT_2020-390a3a7102:p89:598"
+      ]
+    },
+    {
+      "id": "fact-02",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from AAPL_2019: \"Year-over-year Services gross margin percentage increased during _____and 2018 due primarily to a different services mix and leverage of the Company’s services fixed cost structure from higher Services net sales.\"",
+      "ground_truth": "2019 ",
+      "doc_id": "AAPL_2019-8e5a7820f2",
+      "page_number": 24,
+      "gold_chunk_ids": [
+        "AAPL_2019-8e5a7820f2:p24:180"
+      ]
+    },
+    {
+      "id": "fact-03",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from TSLA_2022: \"_____, our employees show up passionate about making a difference in the world and for each other.\"",
+      "ground_truth": "At Tesla",
+      "doc_id": "TSLA_2022-f7f2f82921",
+      "page_number": 15,
+      "gold_chunk_ids": [
+        "TSLA_2022-f7f2f82921:p15:100"
+      ]
+    },
+    {
+      "id": "fact-04",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from MSFT_2024: \"(a) Includes _____ of PSUs granted at target and performance adjustments above target levels for each of the fiscal years 2024, 2023, and 2022.\"",
+      "ground_truth": "1 million",
+      "doc_id": "MSFT_2024-28fc81e2ba",
+      "page_number": 129,
+      "gold_chunk_ids": [
+        "MSFT_2024-28fc81e2ba:p129:648"
+      ]
+    },
+    {
+      "id": "fact-05",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from MSFT_2019: \"The change was mainly due to a _____ decrease in proceeds from issuance of debt, net of repayments of debt, offset in part by a $1.1 billion decrease in cash used for common stock repurchases.\"",
+      "ground_truth": "$41.7 billion",
+      "doc_id": "MSFT_2019-227bf3b471",
+      "page_number": 46,
+      "gold_chunk_ids": [
+        "MSFT_2019-227bf3b471:p46:307"
+      ]
+    },
+    {
+      "id": "fact-06",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from MSFT_2020: \"• General and administrative expenses increased _____ or 5%, driven by charges associated with the closing of our Microsoft Store physical locations, offset in part by a reduction in business taxes and legal expenses.\"",
+      "ground_truth": "$226 million",
+      "doc_id": "MSFT_2020-390a3a7102",
+      "page_number": 42,
+      "gold_chunk_ids": [
+        "MSFT_2020-390a3a7102:p42:267"
+      ]
+    },
+    {
+      "id": "fact-07",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from AAPL_2020: \"_____ entered into $5.2 billion of Repos during 2020, all of which had been settled as of September 26, 2020.\"",
+      "ground_truth": "The Company",
+      "doc_id": "AAPL_2020-11e0948c77",
+      "page_number": 51,
+      "gold_chunk_ids": [
+        "AAPL_2020-11e0948c77:p51:336"
+      ]
+    },
+    {
+      "id": "fact-08",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from TSLA_2018: \"_____One Hundred-and-Sixth Supplemental 8-K(1) 001-35758 4.6 August 10, 2015 Indenture, dated as of August 10, 2015, by and between SolarCity and the Trustee, related to SolarCity’s 5.45% Solar Bonds, Series 2015/C82-15.\"",
+      "ground_truth": "4.112 ",
+      "doc_id": "TSLA_2018-fdad7d3858",
+      "page_number": 156,
+      "gold_chunk_ids": [
+        "TSLA_2018-fdad7d3858:p156:909"
+      ]
+    },
+    {
+      "id": "fact-09",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from TSLA_2023: \"As a result, the damages awarded against Tesla were reduced from an initial _____ (October 4, 2021) down to $15 million (April 13, 2022), and then further down to $3.175 million (April 3, 2023).\"",
+      "ground_truth": "$136.9 million",
+      "doc_id": "TSLA_2023-59b3ab83f7",
+      "page_number": 126,
+      "gold_chunk_ids": [
+        "TSLA_2023-59b3ab83f7:p126:601"
+      ]
+    },
+    {
+      "id": "fact-10",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from MSFT_2019: \"During the first quarter of fiscal year _____we expect to pay $1.2 billion related to the second installment of the transition tax, and $3.5 billion related to the transfer of intangible properties in the fourth quarter of fiscal year 2019.\"",
+      "ground_truth": "2020, ",
+      "doc_id": "MSFT_2019-227bf3b471",
+      "page_number": 47,
+      "gold_chunk_ids": [
+        "MSFT_2019-227bf3b471:p47:320"
+      ]
+    },
+    {
+      "id": "fact-11",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from TSLA_2021: \"(_____) As of December 31, 2021 and 2020, solar energy systems, net, included $36 million of gross finance leased assets with accumulated depreciation and amortization of $9 million and $7 million, respectively.\"",
+      "ground_truth": "2",
+      "doc_id": "TSLA_2021-aab9f2f5de",
+      "page_number": 78,
+      "gold_chunk_ids": [
+        "TSLA_2021-aab9f2f5de:p78:501"
+      ]
+    },
+    {
+      "id": "fact-12",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from TSLA_2019: \"_____ described in Note 2 to the consolidated financial statements, total accrued warranty, which primarily relates to the automotive segment, was $1,089 million as of December 31, 2019.\"",
+      "ground_truth": "Automotive Warranty Reserve As",
+      "doc_id": "TSLA_2019-628dead074",
+      "page_number": 67,
+      "gold_chunk_ids": [
+        "TSLA_2019-628dead074:p67:380"
+      ]
+    },
+    {
+      "id": "fact-13",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from AAPL_2024: \"_____Officer’s Certificate of the Registrant, dated as of August 5, 2021, including forms of 8-K 4.1 8/5/21 global notes representing the 1.400% Notes due 2028, 1.700% Notes due 2031, 2.700% Notes due 2051 and 2.850% Notes due 2061.\"",
+      "ground_truth": "4.25 ",
+      "doc_id": "AAPL_2024-c8c92dc60f",
+      "page_number": 74,
+      "gold_chunk_ids": [
+        "AAPL_2024-c8c92dc60f:p74:408"
+      ]
+    },
+    {
+      "id": "fact-14",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from MSFT_2021: \"PART I Item _____Windows The Windows operating system is designed to deliver a more personal computing experience for users by enabling consistency of experience, applications, and information across their devices.\"",
+      "ground_truth": "1 ",
+      "doc_id": "MSFT_2021-e4e90818bd",
+      "page_number": 13,
+      "gold_chunk_ids": [
+        "MSFT_2021-e4e90818bd:p13:98"
+      ]
+    },
+    {
+      "id": "fact-15",
+      "category": "factual",
+      "question": "Fill in the blank in this statement from TSLA_2020: \"We recognized _____ in impairment related to the IPR&D intangible asset as we abandoned further development efforts and $15 million for the related equipment within the energy generation and storage segment.\"",
+      "ground_truth": "$47 million",
+      "doc_id": "TSLA_2020-1072085bb9",
+      "page_number": 139,
+      "gold_chunk_ids": [
+        "TSLA_2020-1072085bb9:p139:683"
+      ]
+    },
+    {
+      "id": "vis-01",
+      "category": "visual",
+      "question": "In arXiv paper 2312.10997, what does the figure described as \"[figure, page 7] Section: arXiv:2312.10997v5 [cs.CL] 27 Mar 2024. Context: Fig. 4. RAG compared with other model optimization methods in the…\" illustrate?",
+      "ground_truth": "[figure, page 7] Section: arXiv:2312.10997v5 [cs.CL] 27 Mar 2024. Context: Fig. 4. RAG compared with other model optimization methods in the aspects of “External Knowledge Required” and “Model Adaption Required”. Prompt Engineering requires low modifications to the model and external knowledge, focusing on harnessing the capabilities of LLMs themselves. Fine-tuning, on the other hand, involves fur",
+      "doc_id": "arXiv_2312.10997_RAG_Survey-e37a71adc6",
+      "page_number": 7,
+      "gold_chunk_ids": [
+        "arXiv_2312.10997_RAG_Survey-e37a71adc6:p7:46"
+      ]
+    },
+    {
+      "id": "vis-02",
+      "category": "visual",
+      "question": "In AAPL_2022, what does the figure described as \"See accompanying Notes to Consolidated Financial Statements.\" illustrate?",
+      "ground_truth": "See accompanying Notes to Consolidated Financial Statements.",
+      "doc_id": "AAPL_2022-51832e26dd",
+      "page_number": 33,
+      "gold_chunk_ids": [
+        "AAPL_2022-51832e26dd:p33:221"
+      ]
+    },
+    {
+      "id": "vis-03",
+      "category": "visual",
+      "question": "In AAPL_2023, what does the figure described as \"[figure, page 76] Section: The Trustee for the Notes. Context: Exhibit 21.1 Subsidiaries of Apple Inc.* Jurisdiction of Incorporation Apple …\" illustrate?",
+      "ground_truth": "[figure, page 76] Section: The Trustee for the Notes. Context: Exhibit 21.1 Subsidiaries of Apple Inc.* Jurisdiction of Incorporation Apple Asia Limited Hong Kong Apple Asia LLC Delaware, U.S. Apple Canada Inc. Canada Apple Computer Trading (Shanghai) Co., Ltd. China Apple Distribution International Limited Ireland Apple India Private Limited India Apple Insurance Company, Inc. Arizona, U.S. Apple",
+      "doc_id": "AAPL_2023-7eca92b08b",
+      "page_number": 76,
+      "gold_chunk_ids": [
+        "AAPL_2023-7eca92b08b:p76:486"
+      ]
+    },
+    {
+      "id": "vis-04",
+      "category": "visual",
+      "question": "In AAPL_2023, what does the figure described as \"[figure, page 72] Section: Events of Default. Context: majority in aggregate principal amount of the outstanding debt securities of such ser…\" illustrate?",
+      "ground_truth": "[figure, page 72] Section: Events of Default. Context: majority in aggregate principal amount of the outstanding debt securities of such series. The holders of a majority in aggregate principal amount of outstanding debt securities of a series will have the right, subject to certain limitations, to direct the time, method and place of conducting any proceeding for any remedy available to the trust",
+      "doc_id": "AAPL_2023-7eca92b08b",
+      "page_number": 72,
+      "gold_chunk_ids": [
+        "AAPL_2023-7eca92b08b:p72:453"
+      ]
+    },
+    {
+      "id": "vis-05",
+      "category": "visual",
+      "question": "In arXiv paper 2312.10997, what does the figure described as \"[figure, page 2] Section: arXiv:2312.10997v5 [cs.CL] 27 Mar 2024. Context: Fig. 1. Technology tree of RAG research. The stages of involving …\" illustrate?",
+      "ground_truth": "[figure, page 2] Section: arXiv:2312.10997v5 [cs.CL] 27 Mar 2024. Context: Fig. 1. Technology tree of RAG research. The stages of involving RAG mainly include pre-training, fine-tuning, and inference. With the emergence of LLMs, research on RAG initially focused on leveraging the powerful in context learning abilities of LLMs, primarily concentrating on the inference stage. Subsequent research has",
+      "doc_id": "arXiv_2312.10997_RAG_Survey-e37a71adc6",
+      "page_number": 2,
+      "gold_chunk_ids": [
+        "arXiv_2312.10997_RAG_Survey-e37a71adc6:p2:7"
+      ]
+    },
+    {
+      "id": "vis-06",
+      "category": "visual",
+      "question": "In arXiv paper 2312.10997, what does the figure described as \"Vid2Seq augments language models with specialized temporal markers, facilitating the prediction of event boundaries and textual descriptions…\" illustrate?",
+      "ground_truth": "Vid2Seq augments language models with specialized temporal markers, facilitating the prediction of event boundaries and textual descriptions within a unified output sequence [181].",
+      "doc_id": "arXiv_2312.10997_RAG_Survey-e37a71adc6",
+      "page_number": 16,
+      "gold_chunk_ids": [
+        "arXiv_2312.10997_RAG_Survey-e37a71adc6:p16:147"
+      ]
+    },
+    {
+      "id": "vis-07",
+      "category": "visual",
+      "question": "In AAPL_2021, what does the figure described as \"Cash $ 17,773 $ — $ — $ 17,773 $ 17,773 $ — $ —\" illustrate?",
+      "ground_truth": "Cash $ 17,773 $ — $ — $ 17,773 $ 17,773 $ — $ —",
+      "doc_id": "AAPL_2021-f82c5fffdd",
+      "page_number": 41,
+      "gold_chunk_ids": [
+        "AAPL_2021-f82c5fffdd:p41:268"
+      ]
+    },
+    {
+      "id": "vis-08",
+      "category": "visual",
+      "question": "In arXiv paper 2005.11401, what does the figure described as \"Overview of our approach. We combine a pre-trained retriever (Query Encoder + Document Index) with a pre-trained seq2seq model (Generator) a…\" illustrate?",
+      "ground_truth": "Overview of our approach. We combine a pre-trained retriever (Query Encoder + Document Index) with a pre-trained seq2seq model (Generator) and ﬁne-tune end-to-end. For query x, we use Maximum Inner Product Search (MIPS) to ﬁnd the top-K documents zi. For ﬁnal prediction y, we treat z as a",
+      "doc_id": "arXiv_2005.11401_RAG-d7280e1fa7",
+      "page_number": 2,
+      "gold_chunk_ids": [
+        "arXiv_2005.11401_RAG-d7280e1fa7:p2:2"
+      ]
+    },
+    {
+      "id": "vis-09",
+      "category": "visual",
+      "question": "In arXiv paper 2407.01449, what does the figure described as \"[figure, page 24] Section: REFERENCES. Context: Published as a conference paper at ICLR 2025 F EXAMPLES FROM THE ViDoRe BENCHMARK Energy Que…\" illustrate?",
+      "ground_truth": "[figure, page 24] Section: REFERENCES. Context: Published as a conference paper at ICLR 2025 F EXAMPLES FROM THE ViDoRe BENCHMARK Energy Query: What is the projected peak electricity demand in California for the year 2030? Query: What is the estimated total savings for a PV system in Durham under the net metering (flat rate) billing option over the system’s useful life of 25 years? Query: What typ",
+      "doc_id": "arXiv_2407.01449_ColPali-fcf902a77d",
+      "page_number": 24,
+      "gold_chunk_ids": [
+        "arXiv_2407.01449_ColPali-fcf902a77d:p24:184"
+      ]
+    },
+    {
+      "id": "vis-10",
+      "category": "visual",
+      "question": "In AAPL_2021, what does the figure described as \"[figure, page 74] Section: Events of Default. Context: (3) the trustee has been offered indemnity reasonably satisfactory to it against its …\" illustrate?",
+      "ground_truth": "[figure, page 74] Section: Events of Default. Context: (3) the trustee has been offered indemnity reasonably satisfactory to it against its costs, expenses and liabilities in complying with such request; (4) the trustee has failed to institute proceedings 60 days after the receipt of such notice, request and offer of indemnity; and (5) no direction inconsistent with such written request has been g",
+      "doc_id": "AAPL_2021-f82c5fffdd",
+      "page_number": 74,
+      "gold_chunk_ids": [
+        "AAPL_2021-f82c5fffdd:p74:503"
+      ]
+    }
+  ]
+}

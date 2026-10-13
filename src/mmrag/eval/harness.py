@@ -224,15 +224,18 @@ def run_benchmark(settings: Settings | None = None, k: int = 5,
     tabvis = [r for r in rows if r["category"] in {"tabular", "visual"}]
     h_rec = _aggregate([r for r in tabvis if r["system"] == "hybrid"], "hybrid").get("context_recall", 0.0)
     b_rows = [r for r in tabvis if r["system"] == "baseline"]
-    b_rec = _aggregate(b_rows, "baseline").get("context_recall", 0.0) if b_rows else None
-    if b_rec:
-        improvement = (h_rec - b_rec) / b_rec if b_rec > 0 else float("inf")
+    if b_rows:
+        b_rec = _aggregate(b_rows, "baseline").get("context_recall", 0.0)
+        if b_rec and b_rec > 0:
+            improvement: float | None = (h_rec - b_rec) / b_rec
+        else:
+            improvement = None  # baseline recall is zero — every point is infinite gain
         hypothesis = {
             "hybrid_recall_tabvis": h_rec,
             "baseline_recall_tabvis": b_rec,
             "relative_improvement": improvement,
             "threshold": 0.30,
-            "supported": improvement > 0.30,
+            "supported": (improvement > 0.30) if improvement is not None else (h_rec > 0),
         }
     else:
         hypothesis = {"hybrid_recall_tabvis": h_rec, "supported": None,

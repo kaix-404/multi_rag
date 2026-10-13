@@ -18,23 +18,27 @@ from ..ingestion.parser import ParsedItem
 
 def naive_chunks(items: list[ParsedItem], window_words: int = 400,
                  overlap_frac: float = 0.10) -> list[dict]:
-    """Structure-blind fixed word windows over plain text only."""
-    texts = [it.text for it in items if it.chunk_type == "text"]
-    flat = " ".join(texts)
-    words = flat.split()
-    if not words:
-        return []
-    step = int(window_words * (1 - overlap_frac))
-    out, i, n = [], 0, len(words)
-    while i < n:
-        window = words[i:i + window_words]
-        out.append({
-            "chunk_id": f"naive:{len(out):05d}",
-            "text": " ".join(window),
-        })
-        if i + window_words >= n:
-            break
-        i += step
+    """Structure-blind fixed word windows over plain text only.
+
+    Streams through the token buffer so the whole corpus is never duplicated
+    in memory (a 20-document 10-K corpus is enough to blow up a naive
+    ``" ".join(...).split()`` implementation).
+    """
+    step = max(1, int(window_words * (1 - overlap_frac)))
+    out: list[dict] = []
+    buf: list[str] = []
+    for it in items:
+        if it.chunk_type != "text":
+            continue
+        buf.extend(it.text.split())
+        while len(buf) >= window_words:
+            out.append({
+                "chunk_id": f"naive:{len(out):05d}",
+                "text": " ".join(buf[:window_words]),
+            })
+            buf = buf[step:]
+    if 50 <= len(buf):
+        out.append({"chunk_id": f"naive:{len(out):05d}", "text": " ".join(buf)})
     return out
 
 
