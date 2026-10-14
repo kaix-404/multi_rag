@@ -100,12 +100,23 @@ class Settings:
         return bool(self.llm_api_key)
 
 
+def _model_ref(env_key: str, hub_id: str, folder: str) -> str:
+    """Prefer a vendored copy under ``<root>/models/<folder>`` when present
+    (hosts with flaky or blocked HuggingFace access), else the hub id."""
+    override = _env(env_key, "")
+    if override:
+        return override
+    local = PROJECT_ROOT / "models" / folder
+    return str(local) if (local / "config.json").exists() else hub_id
+
+
 def load_settings() -> Settings:
     _load_dotenv()
     return Settings(
         dense_backend=_env("MMRAG_DENSE_BACKEND", "auto"),
-        dense_model=_env("MMRAG_DENSE_MODEL", "BAAI/bge-m3"),
-        reranker_model=_env("MMRAG_RERANKER_MODEL", "BAAI/bge-reranker-large"),
+        dense_model=_model_ref("MMRAG_DENSE_MODEL", "BAAI/bge-m3", "bge-m3"),
+        reranker_model=_model_ref("MMRAG_RERANKER_MODEL", "BAAI/bge-reranker-large",
+                                  "bge-reranker-large"),
         enable_reranker=_env_bool("MMRAG_ENABLE_RERANKER", True),
         qdrant_url=_env("QDRANT_URL", ""),
         qdrant_collection=_env("QDRANT_COLLECTION", "mmrag_chunks"),

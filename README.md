@@ -84,6 +84,8 @@ Copy `.env.example` → `.env`. Key knobs:
 |---|---|
 | `QDRANT_URL` | vector store; empty ⇒ local numpy store |
 | `MMRAG_DENSE_BACKEND` | `auto` (BGE-M3 if installed) or `hash` |
+| `MMRAG_DENSE_MODEL` / `MMRAG_RERANKER_MODEL` | model ids; a vendored copy under `models/<name>` is preferred automatically |
+| `MMRAG_EMBED_BATCH` | encode batch size (default 1 for low-RAM hosts; raise on bigger machines) |
 | `MMRAG_ENABLE_RERANKER` | `0` disables the cross-encoder |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `LLM_MODEL` | generative + VLM; empty ⇒ offline extractive mode |
 
@@ -103,6 +105,7 @@ src/mmrag/
 └── cli.py              # mmrag ingest|index|query|eval|serve|ui
 scripts/download_corpus.py   # 20 × 10-K + 5 × arXiv papers
 docker-compose.yml           # Qdrant
+notebooks/evaluation.ipynb   # reproduces benchmark tables + hypothesis check
 data/results/benchmark.md    # evaluation output
 ```
 
@@ -136,6 +139,6 @@ RAGAS · Xiao et al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
 - [x] Dual index: BM25 sparse + dense vectors, Qdrant via docker-compose
 - [x] RRF fusion (k=60) + cross-encoder reranking
 - [x] VLM figure descriptors + grounded streaming answer synthesis
-- [x] Evaluation notebook-style harness reproducing benchmark tables
+- [x] Evaluation notebook (`notebooks/evaluation.ipynb`) reproducing benchmark tables
 - [x] Streamlit + FastAPI demo with dual-pane evidence inspection
 - [ ] Academic report + slides (see `report/`)

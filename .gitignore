@@ -17,6 +17,7 @@ data/results/*
 !data/results/dataset.json
 spec.txt
 tmp/
+models/
 
 # secrets / caches
 .env

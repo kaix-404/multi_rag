@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import re
 from pathlib import Path
 
@@ -85,14 +86,26 @@ class BgeM3Embedder(Embedder):
         from sentence_transformers import SentenceTransformer  # lazy import
 
         self.model = SentenceTransformer(model_name, device="cpu")
-        self.name = model_name
+        local = Path(model_name)
+        self.name = local.name if local.is_dir() else model_name
         self.dim = dim
 
     def embed(self, texts: list[str]) -> np.ndarray:
-        vecs = self.model.encode(
-            texts, batch_size=16, convert_to_numpy=True,
-            normalize_embeddings=True, show_progress_bar=False,
-        )
+        # batch_size kept small: the 2.3 GB fp32 model plus larger-batch SDPA
+        # activations exhausted the commit limit on this 16 GB host (and
+        # batches >1 have also segfaulted under that pressure), so batch=1
+        # by default; raise via MMRAG_EMBED_BATCH on high-RAM hosts.
+        batch = int(os.environ.get("MMRAG_EMBED_BATCH", "1"))
+        step = 1000
+        parts: list[np.ndarray] = []
+        for i in range(0, len(texts), step):
+            parts.append(self.model.encode(
+                texts[i:i + step], batch_size=batch, convert_to_numpy=True,
+                normalize_embeddings=True, show_progress_bar=False,
+            ))
+            print(f"[dense] encoded {min(i + step, len(texts))}/{len(texts)} "
+                  f"chunks (batch={batch})", flush=True)
+        vecs = np.vstack(parts) if parts else np.empty((0, self.dim), np.float32)
         return np.asarray(vecs, dtype=np.float32)
 
 
