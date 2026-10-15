@@ -20,7 +20,10 @@ import httpx
 import streamlit as st
 from PIL import Image, ImageDraw
 
-from ..config import load_settings
+try:
+    from ..config import load_settings
+except ImportError:  # ``streamlit run`` executes this file outside its package
+    from mmrag.config import load_settings
 
 settings = load_settings()
 API = st.sidebar.text_input("FastAPI URL", settings.api_url)

@@ -57,8 +57,15 @@ class BaselineDenseRetriever:
         self.matrix = embedder.embed(texts)
 
     @classmethod
-    def build(cls, items: list[ParsedItem], settings: Settings) -> "BaselineDenseRetriever":
-        embedder = get_embedder(settings)
+    def build(cls, items: list[ParsedItem], settings: Settings,
+              embedder: Embedder | None = None) -> "BaselineDenseRetriever":
+        # ``embedder`` may be the hybrid retriever's instance: sharing one
+        # BGE-M3 keeps a second 2.3 GB copy out of memory (segfaults on
+        # low-commit hosts) and makes the comparison strictly like-for-like.
+        # Fit-based embedders (hashing TF-IDF) must NOT be shared: baseline
+        # ``fit()`` would corrupt the hybrid store's corpus statistics.
+        if embedder is None or hasattr(embedder, "fit"):
+            embedder = get_embedder(settings)
         return cls(naive_chunks(items), embedder)
 
     def retrieve_ids(self, query: str, top_k: int = 5) -> list[str]:

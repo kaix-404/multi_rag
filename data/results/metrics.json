@@ -1,64 +1,64 @@
 {
   "backend": {
-    "embedder": "hashing-tfidf",
-    "reranker": "heuristic-rrf-blend",
+    "embedder": "bge-m3",
+    "reranker": "D:\\multimodal_hybrid_rag\\models\\bge-reranker-large",
     "store": "local-numpy",
     "llm": null,
     "generative_metrics": "deterministic-only"
   },
   "dataset_counts": {
     "factual": 15,
-    "tabular": 5,
+    "tabular": 15,
     "visual": 10
   },
   "aggregates": {
     "hybrid|overall": {
-      "n": 30,
-      "context_precision": 0.7494444444444445,
+      "n": 40,
+      "context_precision": 0.6779166666666667,
       "context_recall": 0.9,
       "hit_rate_at_5": 0.9,
       "faithfulness": null,
       "answer_relevance": null,
-      "mean_latency_ms": 308.24120333321235
+      "mean_latency_ms": 31402.454657500493
     },
     "baseline|overall": {
-      "n": 30,
-      "context_precision": 0.3957407407407407,
-      "context_recall": 0.5,
-      "hit_rate_at_5": 0.5,
+      "n": 40,
+      "context_precision": 0.13333333333333333,
+      "context_recall": 0.175,
+      "hit_rate_at_5": 0.175,
       "faithfulness": null,
       "answer_relevance": null,
       "mean_latency_ms": null
     },
     "hybrid|factual": {
       "n": 15,
-      "context_precision": 0.6433333333333333,
-      "context_recall": 0.8666666666666667,
-      "hit_rate_at_5": 0.8666666666666667,
+      "context_precision": 0.8688888888888889,
+      "context_recall": 1.0,
+      "hit_rate_at_5": 1.0,
       "faithfulness": null,
       "answer_relevance": null,
-      "mean_latency_ms": 337.0306333337794
+      "mean_latency_ms": 26950.691173332354
     },
     "baseline|factual": {
       "n": 15,
-      "context_precision": 0.7914814814814815,
-      "context_recall": 1.0,
-      "hit_rate_at_5": 1.0,
+      "context_precision": 0.3555555555555555,
+      "context_recall": 0.4666666666666667,
+      "hit_rate_at_5": 0.4666666666666667,
       "faithfulness": null,
       "answer_relevance": null,
       "mean_latency_ms": null
     },
     "hybrid|tabular": {
-      "n": 5,
-      "context_precision": 0.8,
-      "context_recall": 0.8,
-      "hit_rate_at_5": 0.8,
+      "n": 15,
+      "context_precision": 0.48333333333333334,
+      "context_recall": 0.8666666666666667,
+      "hit_rate_at_5": 0.8666666666666667,
       "faithfulness": null,
       "answer_relevance": null,
-      "mean_latency_ms": 208.54449999897042
+      "mean_latency_ms": 35655.37750000076
     },
     "baseline|tabular": {
-      "n": 5,
+      "n": 15,
       "context_precision": 0.0,
       "context_recall": 0.0,
       "hit_rate_at_5": 0.0,
@@ -68,12 +68,12 @@
     },
     "hybrid|visual": {
       "n": 10,
-      "context_precision": 0.8833333333333334,
-      "context_recall": 1.0,
-      "hit_rate_at_5": 1.0,
+      "context_precision": 0.6833333333333333,
+      "context_recall": 0.8,
+      "hit_rate_at_5": 0.8,
       "faithfulness": null,
       "answer_relevance": null,
-      "mean_latency_ms": 314.9054099994828
+      "mean_latency_ms": 31700.715620002302
     },
     "baseline|visual": {
       "n": 10,
@@ -86,10 +86,12 @@
     }
   },
   "hypothesis": {
-    "hybrid_recall_tabvis": 0.9333333333333333,
-    "supported": null,
-    "note": "baseline unavailable"
+    "hybrid_recall_tabvis": 0.84,
+    "baseline_recall_tabvis": 0.0,
+    "relative_improvement": null,
+    "threshold": 0.3,
+    "supported": true
   },
-  "n_questions": 30,
-  "hybrid_mean_latency_ms": 308.24120333321235
+  "n_questions": 40,
+  "hybrid_mean_latency_ms": 31402.454657500493
 }

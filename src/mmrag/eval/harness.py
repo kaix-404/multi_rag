@@ -142,7 +142,12 @@ def run_benchmark(settings: Settings | None = None, k: int = 5,
 
     parsed_items = load_parsed_items(settings)
     hybrid = HybridRetriever.load(settings)
-    baseline = BaselineDenseRetriever.build(parsed_items, settings) if parsed_items else None
+    # Share the hybrid embedder with the baseline (single 2.3 GB model copy
+    # in memory; identical dense space for both systems). build() falls back
+    # to its own instance for fit-based embedders.
+    baseline = (BaselineDenseRetriever.build(parsed_items, settings,
+                                             embedder=hybrid.embedder)
+                if parsed_items else None)
     llm = LLMClient(settings)
     gold_by_id = {c.chunk_id: c for c in chunks}
     can_judge = llm.available
