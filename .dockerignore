@@ -1,10 +1,9 @@
-# build context hygiene — everything needed at runtime is data/index,
-# data/pages, data/assets, data/results and models/
+# build context hygiene — the production image fetches data/ and models/
+# at build time, so the context only needs source + metadata
 .git
 .venv
 tmp
 *.log
-__pycache__
 **/__pycache__
 *.pyc
 .env
@@ -12,6 +11,8 @@ __pycache__
 .pytest_cache
 .ipynb_checkpoints
 notebooks
-data/corpus
+data
+models
+deploy
 report
 spec.txt

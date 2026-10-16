@@ -45,11 +45,12 @@ Notes:
 The paired private key (`deploy/oracle/mmrag_key`, git-ignored) stays on the dev
 machine. Provisioning then runs unattended:
 
-1. source tree → `/home/opc/multi_rag`
-2. `data/{index,pages,assets}` (~730 MB) streamed over SSH
-3. `bash deploy/oracle/setup.sh` → Python 3.13 venv, pinned deps, models from
-   Hugging Face, `mmrag.service`
-4. live verification of `http://<ip>:8501` (UI + query + evidence overlays)
+1. `git clone` of this repo → `/home/opc/multi_rag` (repo is public)
+2. `bash deploy/oracle/setup.sh`, which fetches the 646 MB data bundle from the
+   repo's `data-v1` release, builds the Python 3.13 venv from pinned ARM
+   requirements, downloads the models from Hugging Face, and installs
+   `mmrag.service` (systemd)
+3. live verification of `http://<ip>:8501` (UI + query + evidence overlays)
 
 ## On the box
 

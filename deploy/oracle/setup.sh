@@ -12,8 +12,11 @@ cd "$(dirname "$0")/../.."
 echo "==> repo: $(pwd)"
 
 if [ ! -d data/index ] || [ ! -d data/pages ]; then
-  echo "ERROR: data/index and data/pages are missing - transfer the data bundle first." >&2
-  exit 1
+  echo "==> fetching data bundle (index/pages/assets, 646 MB) from the data-v1 release"
+  curl -fL --retry 3 --retry-delay 5 -o /tmp/data-bundle.tar.gz \
+      https://github.com/kaix-404/multi_rag/releases/download/data-v1/data-bundle.tar.gz
+  tar -xzf /tmp/data-bundle.tar.gz -C .
+  rm -f /tmp/data-bundle.tar.gz
 fi
 
 echo "==> system packages"
