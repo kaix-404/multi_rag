@@ -24,3 +24,4 @@ models/
 .cache/
 .pytest_cache/
 .streamlit/
+deploy/oracle/mmrag_key

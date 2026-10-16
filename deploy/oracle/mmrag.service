@@ -1,0 +1,20 @@
+[Unit]
+Description=Multimodal Hybrid RAG (FastAPI backend + Streamlit demo UI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/home/opc/multi_rag
+Environment=PATH=/home/opc/multi_rag/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=STREAMLIT_BROWSER_GATHER_USAGESTATS=false
+Environment=PORT=8501
+ExecStart=/bin/bash /home/opc/multi_rag/docker-entrypoint.sh
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
