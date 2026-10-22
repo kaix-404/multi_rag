@@ -76,6 +76,12 @@ Left pane: query + streamed answer + ranked passages with RRF/confidence
 telemetry. Right pane: original page render with precise bounding-box overlays
 for the paragraph/table/figure actually used.
 
+The portal has two tabs: **Query & Synthesis** (above) and **Add documents** —
+upload a PDF (≤ 30 MB / ≤ 80 pages) and the backend parses, chunks and embeds
+just that document (`POST /documents/upload`), then hot-swaps it into the live
+retriever so it is searchable immediately. Only the new file's chunks are
+embedded; re-uploading the same file replaces it.
+
 ### Configuration
 
 Copy `.env.example` → `.env`. Key knobs:
@@ -87,7 +93,7 @@ Copy `.env.example` → `.env`. Key knobs:
 | `MMRAG_DENSE_MODEL` / `MMRAG_RERANKER_MODEL` | model ids; a vendored copy under `models/<name>` is preferred automatically |
 | `MMRAG_EMBED_BATCH` | encode batch size (default 1 for low-RAM hosts; raise on bigger machines) |
 | `MMRAG_ENABLE_RERANKER` | `0` disables the cross-encoder |
-| `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `LLM_MODEL` | generative + VLM; empty ⇒ offline extractive mode |
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `LLM_MODEL` | generative + VLM backend; defaults to Puter AI's OpenAI-compatible endpoint (also works with OpenAI/Ollama/vLLM); empty key ⇒ offline extractive mode |
 
 ## Repository layout
 

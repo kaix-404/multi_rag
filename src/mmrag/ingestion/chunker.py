@@ -173,6 +173,32 @@ def _merge_bbox(items: list[ParsedItem]) -> tuple[float, float, float, float]:
     )
 
 
+# Ticker -> company name for the 10-K corpus. Filenames follow TICKER_YEAR
+# (e.g. MSFT_2024.pdf) while PDF metadata titles are unreliable ("Document").
+_TICKER_COMPANY = {"AAPL": "Apple Inc.", "MSFT": "Microsoft Corporation",
+                   "TSLA": "Tesla, Inc."}
+
+
+def doc_context_header(doc_id: str) -> str:
+    """Document-contextualized header prepended to every chunk of a document.
+
+    Financial statement pages often omit the company name and the word
+    'fiscal' (e.g. 'Year Ended June 30, 2024'), which makes the authoritative
+    income-statement row lose to prose that repeats both terms. Prepending the
+    document's identity makes every chunk self-describing for lexical and dense
+    retrieval alike (the "contextual retrieval" technique). Derives from
+    ``doc_id`` (which embeds the filename stem) so no extra plumbing is needed.
+    """
+    stem = doc_id.rsplit("-", 1)[0]
+    m = re.match(r"^([A-Z]+)_(\d{4})$", stem)
+    if m and m.group(1) in _TICKER_COMPANY:
+        return (f"[{_TICKER_COMPANY[m.group(1)]} fiscal year {m.group(2)} "
+                f"annual report (Form 10-K) | {stem}]")
+    if stem.startswith("arXiv_"):
+        return f"[arXiv paper {stem[6:]}]"
+    return f"[document {stem}]"
+
+
 def _coalesce_text(items: list[ParsedItem]) -> ParsedItem:
     """Fuse a run of small text blocks (typical 10-K row-label leakage) into
     one paragraph-level item so retrievers see context, not label shards."""
@@ -208,6 +234,7 @@ def chunk_documents(items: list[ParsedItem], settings: Settings | None = None) -
         doc_items = sorted(by_doc[doc_id], key=lambda x: (x.page_number, x.order))
         counter = [0]
         pending: list[ParsedItem] = []
+        start = len(chunks)
         for item in doc_items:
             if item.chunk_type == "text":
                 if len(item.text) < TINY_TEXT_CHARS or item.meta.get("is_heading"):
@@ -223,6 +250,13 @@ def chunk_documents(items: list[ParsedItem], settings: Settings | None = None) -
                 chunks.extend(_chunk_atomic(item, counter))
         if pending:
             chunks.extend(_chunk_text_item(_coalesce_text(pending), counter))
+
+        # Document-contextualized enrichment: prepend the document identity to
+        # every chunk of this doc so statement rows carrying the numbers are as
+        # retrievable as prose that repeats the company name / fiscal year.
+        header = doc_context_header(doc_id)
+        for ch in chunks[start:]:
+            ch.text = f"{header} {ch.text}".strip()
     return chunks
 
 

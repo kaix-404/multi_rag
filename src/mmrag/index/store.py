@@ -28,6 +28,10 @@ class VectorStore:
         """Drop all vectors (called before a full re-index)."""
         raise NotImplementedError
 
+    def delete(self, chunk_ids: list[str]) -> None:
+        """Remove vectors for specific chunks (used when replacing a document)."""
+        raise NotImplementedError
+
     def search(self, vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         raise NotImplementedError
 
@@ -85,6 +89,20 @@ class LocalVectorStore(VectorStore):
         self.vectors: np.ndarray | None = None
         self._vec_path().unlink(missing_ok=True)
         self._ids_path().unlink(missing_ok=True)
+
+    def delete(self, chunk_ids: list[str]) -> None:
+        drop = set(chunk_ids)
+        if not drop or self.vectors is None:
+            return
+        keep = [i for i, cid in enumerate(self.ids) if cid not in drop]
+        self.ids = [self.ids[i] for i in keep]
+        if keep:
+            self.vectors = self.vectors[keep]
+            np.save(self._vec_path(), self.vectors)
+        else:
+            self.vectors = None
+            self._vec_path().unlink(missing_ok=True)
+        self._ids_path().write_text(json.dumps(self.ids), encoding="utf-8")
 
     def search(self, vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         if self.vectors is None or len(self.ids) == 0:
@@ -148,9 +166,17 @@ class QdrantVectorStore(VectorStore):
         self.client.delete_collection(self.collection)
         self.client.create_collection(
             collection_name=self.collection,
-            vectors_config=models.VectorParams(size=self.dim,
-                                               distance=models.Distance.COSINE),
+            vectors_config=models.VectorParams(size=self.dim, distance=models.Distance.COSINE),
         )
+
+    def delete(self, chunk_ids: list[str]) -> None:
+        import hashlib
+
+        if not chunk_ids:
+            return
+        ids = [int.from_bytes(hashlib.sha1(cid.encode()).digest()[:8], "little")
+               for cid in chunk_ids]
+        self.client.delete(collection_name=self.collection, points=ids)
 
     def search(self, vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         res = self.client.query_points(

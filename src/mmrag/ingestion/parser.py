@@ -360,6 +360,37 @@ def _grid_quality(rows: list[list]) -> bool:
     return filled >= 2
 
 
+# Fraction of non-label cells that must be non-empty for a table to be trusted
+# as a real extraction. HTML-printed financial PDFs (horizontal rules only, no
+# vertical rules) make pdfplumber emit label-only "shells" whose data columns
+# are empty; the actual numbers then only exist in the PyMuPDF text stream.
+# We only "claim" a page region for a table when it genuinely captured its
+# data, so the overlapping PyMuPDF text (which carries the numbers) survives.
+_TABLE_DATA_COVERAGE = 0.5
+
+
+def _table_data_coverage(rows: list[list]) -> float:
+    """Fraction of non-first-column body cells that are non-empty.
+
+    First column holds row labels; the remaining columns hold the data. A
+    well-extracted grid fills most of them; a label-only shell leaves them empty.
+    """
+    if not rows:
+        return 0.0
+    width = max(len(r) for r in rows)
+    if width < 2:
+        return 0.0
+    total = 0
+    filled = 0
+    for r in rows:
+        padded = list(r) + [""] * (width - len(r))
+        for c in padded[1:]:          # skip label column
+            total += 1
+            if _cell_to_md(c):
+                filled += 1
+    return filled / total if total else 0.0
+
+
 def _extract_tables(page_plumber, doc_id: str, pno: int,
                     page_size: tuple[float, float], section: str,
                     order_start: int) -> tuple[list[ParsedItem], list[tuple], int]:
@@ -373,6 +404,12 @@ def _extract_tables(page_plumber, doc_id: str, pno: int,
     for ti, tbl in enumerate(_stitch_rows(found)):
         grid = tbl["rows"]
         if not _grid_quality(grid):
+            continue
+        # A label-only "shell" (data columns empty) is a failed extraction on
+        # rules-only financial PDFs. Do NOT emit it and do NOT let it claim the
+        # region: the real numbers live in the PyMuPDF text stream and must be
+        # kept. Skipping the bbox here is what preserves them.
+        if _table_data_coverage(grid) < _TABLE_DATA_COVERAGE:
             continue
         md = _table_to_markdown(grid)
         if len(md) < 40:

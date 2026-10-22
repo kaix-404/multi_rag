@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .config import Settings, load_settings
 from .eval.harness_io import save_parsed_items
-from .index import BM25Index, get_embedder, open_store
+from .index import BM25Index, VectorStore, get_embedder, open_store
 from .ingestion import chunk_documents, parse_corpus
 from .ingestion.chunker import load_chunks, save_chunks
 from .rag import LLMClient, describe_figures
@@ -103,4 +103,81 @@ def cmd_index(settings: Settings | None = None) -> dict:
     (settings.index_dir / "index_stats.json").write_text(
         json.dumps(stats, indent=2), encoding="utf-8")
     print(f"[index] done in {stats['seconds']}s: {stats}")
+    return stats
+
+
+def ingest_single_pdf(pdf_path: Path, settings: Settings | None = None, *,
+                      embedder=None, store: VectorStore | None = None,
+                      render_dpi: int = 144) -> dict:
+    """Incrementally ingest ONE PDF: parse -> chunk -> figure descriptors ->
+    embed only its chunks -> upsert into the existing store -> rebuild BM25.
+
+    Pass the live ``embedder``/``store`` (the API passes its resident
+    retriever's) so no model reload happens and existing vectors are never
+    re-embedded. Re-ingesting a file whose doc_id already exists replaces that
+    document's chunks and vectors. Returns per-document stats.
+    """
+    settings = settings or load_settings()
+    t0 = time.perf_counter()
+    pdf_path = Path(pdf_path)
+
+    from .ingestion.parser import parse_pdf
+    print(f"[ingest] parsing {pdf_path.name} ...")
+    meta, items = parse_pdf(pdf_path, settings.assets_dir, settings.pages_dir,
+                            render_dpi=render_dpi)
+    new_chunks = chunk_documents(items, settings)
+    if not new_chunks:
+        raise ValueError(f"{pdf_path.name}: no text/table/figure items parsed")
+    vlm_stats = describe_figures(new_chunks, LLMClient(settings))
+
+    existing = (load_chunks(settings.chunks_path)
+                if settings.chunks_path.exists() else [])
+    stale_ids = [c.chunk_id for c in existing if c.doc_id == meta["doc_id"]]
+    merged = [c for c in existing if c.doc_id != meta["doc_id"]] + new_chunks
+
+    if embedder is None:
+        embedder = get_embedder(settings)
+    if store is None:
+        store = open_store(settings, embedder.dim)
+
+    if stale_ids:
+        print(f"[ingest] replacing {meta['doc_id']} "
+              f"({len(stale_ids)} stale chunks dropped)")
+        store.delete(stale_ids)
+
+    texts = [c.text for c in new_chunks]
+    print(f"[ingest] embedding {len(texts)} new chunks with {embedder.name} ...")
+    store.upsert([c.chunk_id for c in new_chunks], embedder.embed(texts))
+
+    # BM25 is rebuilt over the merged corpus (pure-Python, seconds); chunks.jsonl
+    # is written after the store/bm25 so a crash mid-ingest never yields chunks
+    # whose vectors are missing from the on-disk store.
+    bm25 = BM25Index.build([c.chunk_id for c in merged], [c.text for c in merged])
+    bm25.save(settings.bm25_path)
+    save_chunks(merged, settings.chunks_path)
+
+    docs_path = settings.index_dir / "docs.json"
+    docs = (json.loads(docs_path.read_text(encoding="utf-8"))
+            if docs_path.exists() else [])
+    docs = [d for d in docs if d.get("doc_id") != meta["doc_id"]] + [meta]
+    settings.index_dir.mkdir(parents=True, exist_ok=True)
+    docs_path.write_text(json.dumps(docs, indent=2, ensure_ascii=False),
+                         encoding="utf-8")
+
+    stats = {
+        "doc_id": meta["doc_id"],
+        "filename": meta["filename"],
+        "pages": meta["num_pages"],
+        "chunks_added": len(new_chunks),
+        "chunks_replaced": len(stale_ids),
+        "tables": sum(1 for c in new_chunks if c.chunk_type == "table"),
+        "figures": sum(1 for c in new_chunks if c.chunk_type == "figure"),
+        "text": sum(1 for c in new_chunks if c.chunk_type == "text"),
+        "chunks_total": len(merged),
+        "store_count": store.count(),
+        "embedder": embedder.name,
+        "vlm": vlm_stats,
+        "seconds": round(time.perf_counter() - t0, 1),
+    }
+    print(f"[ingest] done in {stats['seconds']}s: {stats}")
     return stats

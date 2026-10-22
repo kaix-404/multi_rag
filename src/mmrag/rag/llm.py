@@ -1,8 +1,10 @@
-"""OpenAI-compatible LLM/VLM client (works with OpenAI, Ollama, vLLM, ...).
+"""LLM/VLM client speaking the OpenAI chat-completions protocol.
 
-No dependency on the ``openai`` package — plain httpx. When no API key is
-configured the client reports itself unavailable and the pipeline falls back
-to offline extractive synthesis; nothing is silently faked.
+Default backend is Puter AI's OpenAI-compatible REST endpoint; also works with
+OpenAI, Ollama, vLLM, or anything exposing POST {base}/chat/completions with
+Bearer auth. No dependency on the ``openai`` package — plain httpx. When no API
+key is configured the client reports itself unavailable and the pipeline falls
+back to offline extractive synthesis; nothing is silently faked.
 """
 
 from __future__ import annotations

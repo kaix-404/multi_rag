@@ -16,10 +16,20 @@ from ..retrieval.retriever import RetrievalResult
 from .llm import LLMClient
 
 _SYSTEM = (
-    "You are a careful financial/technical research assistant. Answer ONLY from "
-    "the supplied contexts. Cite supporting contexts inline as [1], [2], ... "
-    "If the contexts do not contain the answer, say so explicitly. Quote numbers "
-    "and periods exactly. Be concise (<= 180 words)."
+    "You are a careful financial research assistant. Answer ONLY from the "
+    "supplied numbered contexts. Cite supporting contexts inline as [n].\n\n"
+    "CRITICAL rules for numbers:\n"
+    "- Filing tables report dollar amounts IN MILLIONS unless a context states "
+    "otherwise. A value such as 'Total revenue 245,122' means $245,122 million "
+    "= $245.1 billion. Always state the unit explicitly and convert correctly.\n"
+    "- For total revenue, use the CONSOLIDATED total line (labelled 'Total "
+    "revenue' or 'Total net sales'), NOT a segment, product, geography, or "
+    "subtotal.\n"
+    "- Do NOT use figures from other fiscal years even if the context lists "
+    "multiple years; match the year the question asks for.\n"
+    "- Quote figures exactly from context; never invent, round, or interpolate. "
+    "If no context has the exact total, say so rather than guessing.\n"
+    "- Be concise (<= 180 words)."
 )
 
 

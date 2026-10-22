@@ -19,6 +19,9 @@ spec.txt
 tmp/
 models/
 
+# local public-demo tooling (deploy/local/*.bat downloads this at runtime)
+cloudflared.exe
+
 # secrets / caches
 .env
 .cache/

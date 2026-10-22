@@ -66,11 +66,27 @@ class CrossEncoderReranker(Reranker):
         return [1.0 / (1.0 + math.exp(-float(z))) for z in logits]
 
 
+# Memory-safe fallback cross-encoder. ``bge-reranker-large`` (~1.3 GB) often
+# cannot load on low-RAM hosts (commit-limit OOM). MiniLM-L-6 is ~90 MB,
+# loads reliably, and still performs true query-passage scoring -- far better
+# than the heuristic blend at ranking a consolidated-total row over subtotals.
+_SMALL_CROSS_ENCODER = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+
 def get_reranker(settings: Settings) -> Reranker:
     if settings.enable_reranker:
         try:
             return CrossEncoderReranker(settings.reranker_model)
         except Exception as exc:
-            print(f"[rerank] cross-encoder unavailable ({exc.__class__.__name__}: {exc}); "
-                  f"using heuristic score-blend reranker")
+            print(f"[rerank] {settings.reranker_model} unavailable "
+                  f"({exc.__class__.__name__}: {exc}); trying {_SMALL_CROSS_ENCODER}")
+        # Memory-safe fallback: a small cross-encoder still does true
+        # query-passage scoring, which matters for picking the consolidated
+        # total line over segment subtotals. Only fall back to the heuristic
+        # blend if even the small model cannot load.
+        try:
+            return CrossEncoderReranker(_SMALL_CROSS_ENCODER)
+        except Exception as exc:
+            print(f"[rerank] small cross-encoder unavailable "
+                  f"({exc.__class__.__name__}: {exc}); using heuristic score-blend reranker")
     return HeuristicReranker()

@@ -53,24 +53,35 @@ class Settings:
     rrf_k: int = 60                      # spec: RRF constant k = 60
     chunk_tokens: int = 512              # spec: 512-token semantic windows
     chunk_overlap_frac: float = 0.10     # spec: 10% overlap
-    dense_top_k: int = 50                # candidates pulled from each retriever
-    sparse_top_k: int = 50
-    rerank_pool: int = 20                # fused candidates routed to cross-encoder
-    answer_top_k: int = 5                # contexts handed to the generator
+    dense_top_k: int = 100               # candidates pulled from each retriever
+    sparse_top_k: int = 250              # widened: the consolidated-total line can sit
+                                         # deep in BM25 (observed rank ~206) and must
+                                         # still reach the reranker/generator
+    rerank_pool: int = 60                # fused candidates routed to cross-encoder.
+                                         # Post-enrichment the consolidated income-statement
+                                         # chunk sits at fused rank ~41 (measured); reranking
+                                         # 160 instead floods the saturated-score tie band
+                                         # with prose and pushes it out of the top-8.
+    answer_top_k: int = 8                # contexts handed to the generator.
+                                         # Measured: the consolidated income-statement
+                                         # chunk reranks at #6 (scores 2-8 are a saturated
+                                         # 0.9997 tie), so top-5 cut excluded the one
+                                         # context that labels the total explicitly.
 
     # --- models ---------------------------------------------------------------
     dense_backend: str = "auto"          # auto | hash
     dense_model: str = "BAAI/bge-m3"
     dense_dim: int = 1024                # spec: 1024-dimensional representations
-    reranker_model: str = "BAAI/bge-reranker-large"
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     enable_reranker: bool = True
 
     # --- stores ----------------------------------------------------------------
     qdrant_url: str = ""                 # empty = local numpy store
     qdrant_collection: str = "mmrag_chunks"
 
-    # --- LLM / VLM (OpenAI-compatible; empty key => offline extractive mode) ----
-    llm_base_url: str = "https://api.openai.com/v1"
+    # --- LLM / VLM (OpenAI chat-completions protocol; empty key => offline) ----
+    # Default backend is Puter AI, whose REST endpoint speaks the OpenAI protocol.
+    llm_base_url: str = "https://api.puter.com/puterai/openai/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
     vlm_model: str = "gpt-4o-mini"
@@ -120,7 +131,7 @@ def load_settings() -> Settings:
         enable_reranker=_env_bool("MMRAG_ENABLE_RERANKER", True),
         qdrant_url=_env("QDRANT_URL", ""),
         qdrant_collection=_env("QDRANT_COLLECTION", "mmrag_chunks"),
-        llm_base_url=_env("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        llm_base_url=_env("OPENAI_BASE_URL", "https://api.puter.com/puterai/openai/v1"),
         llm_api_key=_env("OPENAI_API_KEY", ""),
         llm_model=_env("LLM_MODEL", "gpt-4o-mini"),
         vlm_model=_env("VLM_MODEL", "gpt-4o-mini"),
