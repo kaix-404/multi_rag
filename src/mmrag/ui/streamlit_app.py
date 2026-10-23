@@ -146,6 +146,25 @@ with tab_query:
                 st.session_state["payload"] = payload
                 st.markdown(f"*Generator:* `{payload.get('generator')}`")
                 st.write(text or "_empty answer_")
+
+                # --- answer-side evidence: which contexts actually supported this answer ---
+                ctxs = payload.get("contexts", [])
+                if ctxs:
+                    st.subheader("Evidence behind this answer")
+                    st.caption(
+                        "Each generated answer is grounded in the ranked passages below. "
+                        "Select a passage to open the original page with a bounding-box "
+                        "overlay for the exact evidence used."
+                    )
+                    for c in ctxs[:3]:
+                        st.markdown(
+                            f"**#{c['rank']} · {c['chunk_type']} · p.{c['page_number']}** · "
+                            f"{c.get('doc_id','unknown')[:24]} · "
+                            f"RRF {c['rrf_score']:.4f} · conf {c['rerank_confidence']:.3f}"
+                        )
+                        st.markdown(c.get('section') or '')
+                        st.code(c['text'][:1200], language=None)
+                        st.divider()
                 st.markdown("**Ranked retrieved passages**")
                 for ctx in payload.get("contexts", []):
                     with st.expander(
