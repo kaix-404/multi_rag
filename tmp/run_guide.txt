@@ -1,0 +1,35 @@
+@echo off
+
+setlocal enabledelayedexpansion
+
+set QUESTION=What were Apple's total net sales in 2023?
+echo "=== multimodal_hybrid_rag: run instructions ==="
+echo.
+echo "Project root: D:\multimodal_hybrid_rag"
+echo "Python venv:  .venv"
+echo.
+echo "Required services already running on this machine:"
+echo "  - Ollama (OpenAI-compatible)     : http://127.0.0.1:11434/v1"
+echo "  - Backend API (FastAPI + uvicorn): http://127.0.0.1:8000"
+echo "  - Streamlit UI                   : http://127.0.0.1:8501"
+echo "  - Chroma? not used               : local numpy store"
+echo.
+echo "To manually restart the backend from this folder, run:"
+echo.
+echo "    .venv\Scripts\python.exe -m uvicorn mmrag.api.app:app --host 127.0.0.1 --port 8000"
+echo.
+echo "The backend health endpoint is:"
+echo "    http://127.0.0.1:8000/health"
+echo.
+echo "The Streamlit health endpoint is:"
+echo "    http://127.0.0.1:8501/_stcore/health"
+echo.
+echo "Config used by this host is in .env (OPENAI_BASE_URL=http://127.0.0.1:11434/v1,"
+echo "LLM_MODEL=qwen2.5:3b, dense backend=hash, reranker=MiniLM)."
+echo.
+echo "Index files present in data/index:"
+echo "  - chunks.jsonl"
+echo "  - bm25.pkl"
+echo "  - embedder.pkl"
+echo.
+echo "done"

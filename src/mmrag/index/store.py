@@ -117,7 +117,8 @@ class LocalVectorStore(VectorStore):
             return []
         v = np.asarray(vector, dtype=np.float32)
         vn = v / (np.linalg.norm(v) + 1e-12)
-        M = self.vectors / (np.linalg.norm(self.vectors, axis=1, keepdims=True) + 1e-12)
+        norms = np.linalg.norm(self.vectors, axis=1, keepdims=True) + 1e-12
+        M = self.vectors / norms
         sims = M @ vn
         k = min(top_k, len(self.ids))
         top = np.argpartition(-sims, k - 1)[:k]

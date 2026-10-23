@@ -1,0 +1,34 @@
+Project root: D:\multimodal_hybrid_rag
+Python env:   .venv
+
+1) Backend API (FastAPI / uvicorn)
+   .venv\Scripts\python.exe -m uvicorn mmrag.api.app:app --host 127.0.0.1 --port 8000
+
+2) Streamlit UI
+   .venv\Scripts\python.exe -m streamlit run src/mmrag/ui/streamlit_app.py --server.port 8501 --server.headless true
+
+3) Ollama (OpenAI-compatible LLM endpoint used by this host)
+   Already expected at http://127.0.0.1:11434/v1
+   Models pulled here: qwen2.5:3b (and qwen2.5:1.5b)
+
+Optional supporting services:
+4) Qdrant (only if using a remote vector store instead of the local numpy store)
+   docker-compose up -d qdrant
+   Then set QDRANT_URL in .env to http://127.0.0.1:6333
+
+Local public-demo tunnel (only if you are exposing this to the web via Cloudflare tunnel)
+   deploy/local/start_public.bat   (downloads cloudflared.exe at runtime if missing)
+   deploy/local/stop_public.bat
+
+Default ports this project uses:
+   Backend  : http://127.0.0.1:8000
+   UI       : http://127.0.0.1:8501
+   Ollama   : http://127.0.0.1:11434
+   Health checks:
+     - http://127.0.0.1:8000/health
+     - http://127.0.0.1:8501/_stcore/health
+
+Notes:
+- This repo is configured for local Ollama by default (see .env).
+- Venv python/pip lives in .venv\Scripts\python.exe and .venv\Scripts\pip.exe.
+- Index is already built in data/index (chunks.jsonl, bm25.pkl, embedder.pkl).

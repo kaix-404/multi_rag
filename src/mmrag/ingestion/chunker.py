@@ -232,7 +232,8 @@ def _chunk_text_item(item: ParsedItem) -> list[Chunk]:
             text=body,
             bbox=item.bbox,
             page_size=item.page_size,
-        )        chunks.append(chunk)
+        )
+        chunks.append(chunk)
     return chunks
 
 
