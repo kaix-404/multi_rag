@@ -3,7 +3,7 @@
 Tables and figures stay atomic (never split) so 2-D header/column relations
 and chart assets survive intact; prose is packed greedily by sentence so
 windows break on natural boundaries instead of mid-token. Every chunk keeps
-``{doc_id, page_number, chunk_type, bounding_box, section}`` provenance.
+`{doc_id, page_number, chunk_type, bounding_box, section}` provenance.
 """
 
 from __future__ import annotations
@@ -56,15 +56,58 @@ class Chunk:
 
     @staticmethod
     def from_dict(d: dict) -> "Chunk":
-        d = dict(d)
-        d["bbox"] = tuple(d.get("bbox", (0, 0, 0, 0)))
-        d["page_size"] = tuple(d.get("page_size", (0, 0)))
-        return Chunk(**d)
+        return Chunk(
+            chunk_id=d["chunk_id"],
+            doc_id=d["doc_id"],
+            page_number=int(d["page_number"]),
+            chunk_type=d["chunk_type"],
+            section=d.get("section", ""),
+            text=d["text"],
+            bbox=tuple(d.get("bbox", (0, 0, 0, 0))),
+            page_size=tuple(d.get("page_size", (0, 0, 0, 0))),
+            asset_path=d.get("asset_path", ""),
+            caption=d.get("caption", ""),
+            descriptor=d.get("descriptor", ""),
+            meta=dict(d.get("meta", {})),
+        )
+
+
+_DOC_LABELS = {
+    "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft Corporation",
+    "TSLA": "Tesla, Inc.",
+}
+
+# Backward-compatible alias used by any existing import of DOC_LABELS.
+DOC_LABELS = _DOC_LABELS
+
+
+def doc_context_header(doc_id: str) -> str:
+    """Document-contextualized header prepended to every chunk of a document.
+
+    Parses the doc_id prefix and emits a short provenance string that the
+    retriever prepends to every chunk so the LLM can always see which
+    document and page a chunk came from.
+    """
+    prefix = doc_id.split("_")[0].upper()
+    label = _DOC_LABELS.get(prefix, prefix)
+    m = re.match(r"^([A-Z]+)_(\d{4})", doc_id)
+    if m:
+        fiscal_year = m.group(2)
+    else:
+        fiscal_year = doc_id.split("_")[1] if "_" in doc_id else "unknown"
+    return f"[{label} fiscal year {fiscal_year} annual report (Form 10-K) | {doc_id}]"
 
 
 def _pack_sentences(sentences: list[str], budget: int, overlap_budget: int
                     ) -> list[tuple[int, int, int]]:
-    """Greedy pack -> list of (start, end, overlap_start) sentence spans."""
+    """Greedy pack -> list of (start, end, overlap_start) sentence spans.
+
+    Overlap windows are created by walking back from the window START
+    (ov_start), not the window end. Walking back from the window end instead
+    leaves ov_end modified and makes every middle window emit only its tiny
+    overlap tail and silently drop its whole body.
+    """
     spans: list[tuple[int, int, int]] = []
     i = 0
     n = len(sentences)
@@ -91,200 +134,158 @@ def _pack_sentences(sentences: list[str], budget: int, overlap_budget: int
             i += 1
             continue
 
-        # overlap: walk back from the start of this window
-        ov_start, ov_tokens = j, 0
-        while ov_start > i:
+        # overlap: extend this window backward into the previous window's tail
+        # (walk back from the window START, floored at 0). The consumer joins
+        # sentences[ov_start:end], so ov_start must precede i -- walking back
+        # from the window end instead made every middle window emit only its
+        # tiny overlap tail and silently drop its whole body.
+        ov_start, ov_tokens = i, 0
+        while ov_start > 0:
             t = token_est(sentences[ov_start - 1])
             if ov_tokens + t > overlap_budget:
                 break
             ov_tokens += t
             ov_start -= 1
-        ov_start = max(ov_start, i) if spans else i  # no overlap into prior doc start
-        spans.append((i, j, ov_start if spans else i))
+
+        spans.append((ov_start, j, ov_start))
+
         i = j
+
     return spans
 
 
-def _chunk_text_item(item: ParsedItem, counter: list[int]) -> list[Chunk]:
-    budget = 512
-    overlap = int(budget * 0.10)
-    sentences = split_sentences(item.text)
-    if not sentences:
-        return []
-    out: list[Chunk] = []
-    for (s, e, ov) in _pack_sentences(sentences, budget, overlap):
-        text = " ".join(sentences[ov:e])
-        out.append(Chunk(
-            chunk_id=f"{item.doc_id}:p{item.page_number}:{counter[0]}",
-            doc_id=item.doc_id,
-            page_number=item.page_number,
-            chunk_type="text",
-            section=item.section,
-            text=text,
-            bbox=item.bbox,
-            page_size=item.page_size,
-            meta={"sentence_span": [s, e], "is_heading": item.meta.get("is_heading", False)},
-        ))
-        counter[0] += 1
-    return out
+def chunk_documents(items, settings):
+    """Chunk a list of parsed items into a list of Chunk objects."""
+    from .parser import ParsedItem
 
-
-def _chunk_atomic(item: ParsedItem, counter: list[int]) -> list[Chunk]:
-    text = item.text
-    if item.chunk_type == "figure":
-        # figures start with caption only; VLM descriptor is attached in rag.vlm
-        # *after* chunking, and only then does the figure become searchable.
-        text = item.caption or ""
-    if not text.strip():
-        # caption-less figure: keep it indexable via its provenance string
-        if item.chunk_type == "figure":
-            text = (f"[figure on page {item.page_number}"
-                   f"{', ' + item.section if item.section else ''}]")
-        else:
-            return []
-    if len(text) > 40_000:  # safety cap on giant tables
-        text = text[:40_000] + "\n…[truncated]"
-    ch = Chunk(
-        chunk_id=f"{item.doc_id}:p{item.page_number}:{counter[0]}",
-        doc_id=item.doc_id,
-        page_number=item.page_number,
-        chunk_type=item.chunk_type,
-        section=item.section,
-        text=text,
-        bbox=item.bbox,
-        page_size=item.page_size,
-        asset_path=item.asset_path,
-        caption=item.caption,
-        meta=dict(item.meta),
-    )
-    counter[0] += 1
-    return [ch]
-
-
-TINY_TEXT_CHARS = 120  # row labels / orphaned fragments below this get merged
-
-
-def _merge_bbox(items: list[ParsedItem]) -> tuple[float, float, float, float]:
-    return (
-        min(it.bbox[0] for it in items),
-        min(it.bbox[1] for it in items),
-        max(it.bbox[2] for it in items),
-        max(it.bbox[3] for it in items),
-    )
-
-
-# Ticker -> company name for the 10-K corpus. Filenames follow TICKER_YEAR
-# (e.g. MSFT_2024.pdf) while PDF metadata titles are unreliable ("Document").
-_TICKER_COMPANY = {"AAPL": "Apple Inc.", "MSFT": "Microsoft Corporation",
-                   "TSLA": "Tesla, Inc."}
-
-
-def doc_context_header(doc_id: str) -> str:
-    """Document-contextualized header prepended to every chunk of a document.
-
-    Financial statement pages often omit the company name and the word
-    'fiscal' (e.g. 'Year Ended June 30, 2024'), which makes the authoritative
-    income-statement row lose to prose that repeats both terms. Prepending the
-    document's identity makes every chunk self-describing for lexical and dense
-    retrieval alike (the "contextual retrieval" technique). Derives from
-    ``doc_id`` (which embeds the filename stem) so no extra plumbing is needed.
-    """
-    stem = doc_id.rsplit("-", 1)[0]
-    m = re.match(r"^([A-Z]+)_(\d{4})$", stem)
-    if m and m.group(1) in _TICKER_COMPANY:
-        return (f"[{_TICKER_COMPANY[m.group(1)]} fiscal year {m.group(2)} "
-                f"annual report (Form 10-K) | {stem}]")
-    if stem.startswith("arXiv_"):
-        return f"[arXiv paper {stem[6:]}]"
-    return f"[document {stem}]"
-
-
-def _coalesce_text(items: list[ParsedItem]) -> ParsedItem:
-    """Fuse a run of small text blocks (typical 10-K row-label leakage) into
-    one paragraph-level item so retrievers see context, not label shards."""
-    head = items[0]
-    text = " ".join(it.text for it in items)
-    return ParsedItem(
-        doc_id=head.doc_id,
-        page_number=head.page_number,
-        chunk_type="text",
-        text=text,
-        bbox=_merge_bbox(items),
-        page_size=head.page_size,
-        section=next((it.section for it in reversed(items) if it.section), head.section),
-        order=items[0].order,
-        meta={"coalesced_blocks": len(items)},
-    )
-
-
-def chunk_documents(items: list[ParsedItem], settings: Settings | None = None) -> list[Chunk]:
-    """Chunk a parsed corpus preserving document/page order.
-
-    Small text blocks (single row labels, orphaned headings, footer shards)
-    are buffered and fused into the next substantial paragraph on the same
-    page, which prevents short label fragments from dominating BM25/dense
-    rankings in financial filings.
-    """
     by_doc: dict[str, list[ParsedItem]] = {}
     for it in items:
         by_doc.setdefault(it.doc_id, []).append(it)
 
     chunks: list[Chunk] = []
+    doc_chunk_start: dict[str, int] = {}
+
     for doc_id in sorted(by_doc):
+        doc_chunk_start[doc_id] = len(chunks)
         doc_items = sorted(by_doc[doc_id], key=lambda x: (x.page_number, x.order))
-        counter = [0]
         pending: list[ParsedItem] = []
-        start = len(chunks)
         for item in doc_items:
             if item.chunk_type == "text":
-                if len(item.text) < TINY_TEXT_CHARS or item.meta.get("is_heading"):
+                if len(item.text) < 120 or item.meta.get("is_heading"):
                     pending.append(item)
                     continue
                 merged = _coalesce_text(pending + [item]) if pending else item
-                chunks.extend(_chunk_text_item(merged, counter))
+                chunks.extend(_chunk_text_item(merged))
                 pending = []
             else:
                 if pending:
-                    chunks.extend(_chunk_text_item(_coalesce_text(pending), counter))
+                    chunks.extend(_chunk_text_item(_coalesce_text(pending)))
                     pending = []
-                chunks.extend(_chunk_atomic(item, counter))
+                chunks.extend(_chunk_atomic(item))
         if pending:
-            chunks.extend(_chunk_text_item(_coalesce_text(pending), counter))
+            chunks.extend(_chunk_text_item(_coalesce_text(pending)))
 
-        # Document-contextualized enrichment: prepend the document identity to
-        # every chunk of this doc so statement rows carrying the numbers are as
-        # retrievable as prose that repeats the company name / fiscal year.
+    for doc_id in sorted(by_doc):
+        start = doc_chunk_start[doc_id]
         header = doc_context_header(doc_id)
         for ch in chunks[start:]:
-            ch.text = f"{header} {ch.text}".strip()
+            if ch.doc_id == doc_id:
+                ch.text = f"{header} {ch.text}".strip()
+            else:
+                break
+
+    for ch in chunks:
+        if not ch.chunk_id:
+            ch.chunk_id = f"{ch.doc_id}:{ch.page_number}:{id(ch) % 10**8}"
+
     return chunks
 
 
-# --------------------------------------------------------------------------- #
-# persistence
-# --------------------------------------------------------------------------- #
-
-def save_chunks(chunks: list[Chunk], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        for ch in chunks:
-            fh.write(json.dumps(ch.to_dict(), ensure_ascii=False) + "\n")
-
-
-def load_chunks(path: Path) -> list[Chunk]:
-    out: list[Chunk] = []
-    with Path(path).open("r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if line:
-                out.append(Chunk.from_dict(json.loads(line)))
-    return out
+def _coalesce_text(items: list[ParsedItem]) -> ParsedItem:
+    """Coalesce a list of text items into one ParsedItem."""
+    if not items:
+        raise ValueError("_coalesce_text called with empty list")
+    first = items[0]
+    kw: dict = dict(first.__dict__) if hasattr(first, "__dict__") else {}
+    kw["text"] = "\n".join(it.text for it in items)
+    kw["chunk_type"] = "text"
+    return ParsedItem(**kw)
 
 
-def save_json(obj, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+def _chunk_text_item(item: ParsedItem) -> list[Chunk]:
+    """Chunk a single text item into sentence-window chunks."""
+    sents = split_sentences(item.text)
+    if not sents:
+        return []
+    budget = 512
+    overlap_budget = max(8, int(budget * 0.10))
+    spans = _pack_sentences(sents, budget, overlap_budget)
+    chunks = []
+    for start, end, ov_start in spans:
+        body = " ".join(sents[ov_start:end])
+        chunk = Chunk(
+            chunk_id="",
+            doc_id=item.doc_id,
+            page_number=item.page_number,
+            chunk_type="text",
+            section=item.section,
+            text=body,
+            bbox=item.bbox,
+            page_size=item.page_size,
+        )        chunks.append(chunk)
+    return chunks
 
 
-def load_json(path: Path):
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+def _chunk_atomic(item: ParsedItem) -> list[Chunk]:
+    """Chunk a single atomic item (table/figure) into one chunk."""
+    kw: dict = dict(item.__dict__) if hasattr(item, "__dict__") else {}
+    kw.setdefault("chunk_type", item.chunk_type)
+    return [Chunk(
+        chunk_id="",
+        doc_id=item.doc_id,
+        page_number=item.page_number,
+        chunk_type=item.chunk_type,
+        section=item.section,
+        text=item.text,
+        bbox=item.bbox,
+        page_size=item.page_size,
+    )]
+
+
+
+
+def load_chunks(path):
+    """Load chunks from a JSONL file as Chunk objects."""
+    chunks: list[Chunk] = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        d = json.loads(line)
+        obj = Chunk.from_dict(d)
+        if not isinstance(obj, Chunk):
+            raise TypeError(
+                f"load_chunks: Chunk.from_dict returned {type(obj).__name__} "
+                f"for chunk_id={d.get('chunk_id')!r}; expected Chunk."
+            )
+        chunks.append(obj)
+    return chunks
+
+
+def save_chunks(chunks, path):
+    """Save chunks to a JSONL file."""
+    lines = [json.dumps(c.to_dict(), ensure_ascii=False) for c in chunks]
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# Re-export the names the rest of the package expects.
+__all__ = [
+    "Chunk", "chunk_documents", "load_chunks", "save_chunks",
+    "split_sentences", "token_est", "doc_context_header",
+    "_pack_sentences", "_DOC_LABELS", "DOC_LABELS",
+]
+
+
+def __getattr__(name):
+    if name in (__all__):
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

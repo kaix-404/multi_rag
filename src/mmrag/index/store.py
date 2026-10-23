@@ -60,9 +60,17 @@ class LocalVectorStore(VectorStore):
 
     def _load(self) -> None:
         if self._vec_path().exists() and self._ids_path().exists():
-            self.vectors = np.load(self._vec_path())
-            self.ids = json.loads(self._ids_path().read_text(encoding="utf-8"))
-            if len(self.ids) != self.vectors.shape[0]:
+            try:
+                self.vectors = np.load(self._vec_path())
+            except Exception as exc:
+                print(f"[store] cannot load vectors.npy: {exc}")
+                self.vectors = None
+            try:
+                self.ids = json.loads(self._ids_path().read_text(encoding="utf-8"))
+            except Exception as exc:
+                print(f"[store] cannot load vector_ids.json: {exc}")
+                self.ids = []
+            if self.vectors is None or len(self.ids) != self.vectors.shape[0]:
                 self.ids, self.vectors = [], None
 
     def upsert(self, chunk_ids: list[str], vectors: np.ndarray) -> None:

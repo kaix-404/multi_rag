@@ -64,4 +64,7 @@ class BM25Index:
     @classmethod
     def load(cls, path: Path) -> "BM25Index":
         with Path(path).open("rb") as fh:
-            return pickle.load(fh)
+            obj = pickle.load(fh)
+        if not isinstance(obj, cls):
+            raise RuntimeError(f"BM25Index.load: expected BM25Index, got {type(obj).__name__}")
+        return obj

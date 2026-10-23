@@ -147,4 +147,4 @@ RAGAS · Xiao et al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
 - [x] VLM figure descriptors + grounded streaming answer synthesis
 - [x] Evaluation notebook (`notebooks/evaluation.ipynb`) reproducing benchmark tables
 - [x] Streamlit + FastAPI demo with dual-pane evidence inspection
-- [ ] Academic report + slides (see `report/`)
+- [x] Academic report + slides (see `report/`)
