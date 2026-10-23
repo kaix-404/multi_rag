@@ -156,7 +156,10 @@ with tab_query:
                         "Select a passage to open the original page with a bounding-box "
                         "overlay for the exact evidence used."
                     )
-                    for c in ctxs[:3]:
+                    shown = ctxs[:3]
+                    if not any(c.get("rrf_score") for c in shown):
+                        shown = ctxs[:1]
+                    for c in shown:
                         st.markdown(
                             f"**#{c['rank']} · {c['chunk_type']} · p.{c['page_number']}** · "
                             f"{c.get('doc_id','unknown')[:24]} · "
