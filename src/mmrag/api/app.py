@@ -20,8 +20,9 @@ import re
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from starlette.requests import Request as StarletteRequest
 
 from ..config import load_settings
 from ..rag.generate import _ctx_dict, build_prompt, stream_answer
@@ -38,7 +39,7 @@ _llm: LLMClient | None = None
 _last_telemetry: dict | None = None
 
 MAX_UPLOAD_MB = 30
-MAX_UPLOAD_PAGES = 80
+MAX_UPLOAD_PAGES = 200
 
 
 def get_retriever() -> HybridRetriever:
@@ -126,10 +127,51 @@ def upload_document(file: UploadFile = File(...)) -> dict:
 
     retriever = get_retriever()  # ensures the embedder is resident; reuse it
     with _ingest_lock:
+        # Resolve the doc_id this upload must be compared against BEFORE the
+        # "before" snapshot is taken, otherwise the per-document counts are
+        # keyed by the wrong id and a re-upload reports zeros.
+        old_chunks = load_chunks(settings.chunks_path)
+        # name+size mirrors the parser's ``_doc_id()``, but the parser hashes
+        # the full filename while this helper hashes the stem, so when a
+        # docs.json entry already exists for this file (a previous ingest)
+        # that recorded doc_id is authoritative.
+        doc_id = _doc_id_for_pdf(pdf_path, raw)
+        docs_path = settings.index_dir / "docs.json"
+        existing_docs: list[dict] = []
+        if docs_path.exists():
+            try:
+                existing_docs = json.loads(docs_path.read_text(encoding="utf-8"))
+            except Exception:
+                existing_docs = []
+        match = next(
+            (d["doc_id"] for d in existing_docs
+             if d.get("filename") == pdf_path.name
+             or d.get("path", "").endswith(pdf_path.name)
+             or d.get("doc_id", "").split("-", 1)[0] == pdf_path.stem),
+            None,
+        )
+        prev_pages = 0
+        if match:
+            doc_id = match
+            prev_doc = next((d for d in existing_docs if d.get("doc_id") == match), {})
+            prev_pages = int(prev_doc.get("num_pages") or 0)
+
+        # Snapshot the pre-ingest state of this document and of the whole
+        # index, so the upload response can say exactly what changed.
+        before = {
+            "chunks": len(old_chunks),
+            "store_count": retriever.store.count(),
+            "doc_count": len({c.doc_id for c in old_chunks}),
+            "pages": prev_pages,
+            "tables": sum(1 for c in old_chunks if c.doc_id == doc_id and c.chunk_type == "table"),
+            "figures": sum(1 for c in old_chunks if c.doc_id == doc_id and c.chunk_type == "figure"),
+            "text": sum(1 for c in old_chunks if c.doc_id == doc_id and c.chunk_type == "text"),
+        }
         try:
             stats = ingest_single_pdf(pdf_path, settings,
                                       embedder=retriever.embedder,
-                                      store=retriever.store)
+                                      store=retriever.store,
+                                      before=before)
         except Exception as exc:
             pdf_path.unlink(missing_ok=True)
             raise HTTPException(status_code=500, detail=f"ingest failed: {exc}")
@@ -142,6 +184,14 @@ def upload_document(file: UploadFile = File(...)) -> dict:
                                      retriever.store, retriever.reranker,
                                      settings)
     return {"status": "ok", **stats, "chunks": len(chunks)}
+
+
+def _doc_id_for_pdf(pdf_path: Path, raw: bytes) -> str:
+    """Mirror the package's existing doc_id derivation so the before/after
+    snapshot keys line up with what ``ingest_single_pdf`` will produce."""
+    import hashlib
+    h = hashlib.sha1(f"{pdf_path.stem[:48]}:{pdf_path.stat().st_size}".encode()).hexdigest()[:10]
+    return f"{pdf_path.stem[:48]}-{h}"
 
 
 @app.get("/documents")
@@ -169,7 +219,7 @@ def figure_asset(name: str) -> FileResponse:
 
 
 @app.post("/query")
-async def query(request: Request):
+async def query(request: StarletteRequest):
     body = await request.json()
     question = (body.get("question") or "").strip()
     if not question:
@@ -177,31 +227,87 @@ async def query(request: Request):
     top_k = int(body.get("top_k", settings.answer_top_k))
     stream = bool(body.get("stream", False))
 
+    if stream:
+        retriever = get_retriever()
+        llm = get_llm()
+        results, _telemetry = retriever.retrieve(question, top_k=top_k)
+        tel = _telemetry.__dict__.copy()
+        global _last_telemetry
+        _last_telemetry = tel
+        contexts = [_ctx_dict(i, r) for i, r in enumerate(results, 1)]
+
+        def event_stream():
+            for delta in stream_answer(question, results, llm):
+                yield f"data: {json.dumps(dict(type='delta', text=delta), ensure_ascii=True)}\n\n"
+            yield ("data: " + json.dumps(dict(
+                type='done',
+                generator=f"llm:{llm.model}" if llm.available
+                          else "extractive-fallback",
+                contexts=contexts,
+                telemetry=tel,
+            ), ensure_ascii=True) + "\n\n")
+
+        return StreamingResponse(event_stream(), media_type="text/event-stream; charset=utf-8", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*"})
+
     retriever = get_retriever()
     llm = get_llm()
-    results, telemetry = retriever.retrieve(question, top_k=top_k)
-    tel = telemetry.__dict__.copy()
-    global _last_telemetry
+    results, _telemetry = retriever.retrieve(question, top_k=top_k)
+    tel = _telemetry.__dict__.copy()
     _last_telemetry = tel
 
     contexts = [_ctx_dict(i, r) for i, r in enumerate(results, 1)]
 
-    if stream:
-        def event_stream():
-            for delta in stream_answer(question, results, llm):
-                yield f"data: {json.dumps({'type': 'delta', 'text': delta})}\n\n"
-            yield ("data: " + json.dumps({
-                "type": "done",
-                "generator": f"llm:{llm.model}" if llm.available
-                             else "extractive-fallback",
-                "contexts": contexts,
-                "telemetry": tel,
-            }) + "\n\n")
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
-
     from ..rag.generate import answer_question
     out = answer_question(question, results, llm, settings)
     out["telemetry"] = tel
+
+    ctxs = contexts if isinstance(contexts, list) else []
+    if ctxs and isinstance(ctxs[0], dict) and ctxs[0].get("rrf_score"):
+        rank1 = ctxs[0]["rank"]
+        rrf1 = float(ctxs[0]["rrf_score"])
+        rrf2 = float(ctxs[1]["rrf_score"]) if len(ctxs) > 1 and isinstance(ctxs[1], dict) else 0.0
+        answer_length = len(out.get("answer", ""))
+        delta = rrf1 - rrf2
+        if delta > 0.015 and rank1 == 1:
+            label, reason = "High", (
+                "The model grounded this answer in its top-ranked evidence with a clear winner "
+                "between the best and second-best passage."
+            )
+        elif delta > 0.003 and rank1 <= 2:
+            label, reason = "Medium", (
+                "The answer is supported by ranked evidence, but several passages scored similarly "
+                "— treat the key numbers as worth double-checking."
+            )
+        else:
+            label, reason = "Low", (
+                "This answer is tentative. The strongest evidence still carried the result, but the "
+                "model had little to work with — verify the key point against the document itself."
+            )
+        out["confidence_score"] = round((rrf1 / (rrf1 + rrf2)) if (rrf1 + rrf2) > 0 else 0.0, 3)
+        out["confidence_label"] = label
+        out["confidence_breakdown"] = {
+            "top_context_rank": rank1,
+            "top_rrf": round(rrf1, 5),
+            "second_rrf": round(rrf2, 5),
+            "rrf_gap": round(delta, 5),
+            "answer_length_chars": answer_length,
+            "reason": reason,
+        }
+    else:
+        out["confidence_score"] = 0.0
+        out["confidence_label"] = "Low"
+        out["confidence_breakdown"] = {
+            "top_context_rank": None,
+            "top_rrf": None,
+            "second_rrf": None,
+            "rrf_gap": None,
+            "answer_length_chars": len(out.get("answer", "")),
+            "reason": (
+                "The query returned no scorable evidence for a reliable confidence estimate. "
+                "Treat the answer as tentative and verify the key point against the document."
+            ),
+        }
+
     return out
 
 

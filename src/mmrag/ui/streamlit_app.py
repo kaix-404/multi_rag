@@ -32,7 +32,7 @@ TOP_K = st.sidebar.slider("Contexts (top-k)", 3, 10, settings.answer_top_k)
 
 # mirror of the backend's upload guards (api/app.py)
 MAX_UPLOAD_MB = 30
-MAX_UPLOAD_PAGES = 80
+MAX_UPLOAD_PAGES = 200
 
 TYPE_COLOR = {"text": (52, 152, 219), "table": (46, 204, 113), "figure": (231, 76, 60)}
 
@@ -240,7 +240,7 @@ with tab_add:
         f"Upload a PDF (≤ {MAX_UPLOAD_MB} MB, ≤ {MAX_UPLOAD_PAGES} pages). Parsing and "
         "embedding run on the backend host — a small PDF takes about a minute, larger "
         "ones several. Only the new file is embedded; existing documents keep their "
-        "index. Re-uploading the same file replaces it."
+        "index. Re-uploading the same file replaces its previous chunks."
     )
     up = st.file_uploader("PDF file", type=["pdf"])
     run_ingest = st.button("Ingest & index", type="primary", disabled=up is None)
@@ -256,6 +256,19 @@ with tab_add:
                 f"{res['text']} text) in {res['seconds']} s; "
                 f"store now holds {res['chunks_total']} chunks."
             )
+            d = res.get("diff") or {}
+            if d:
+                touched = d.get("pages_touched") or []
+                span = f"p.{touched[0]}–{touched[-1]}" if touched else "—"
+                st.markdown(
+                    f"**What changed — {'re-uploaded' if d.get('is_replacement') else 'new document'}:** "
+                    f"+{d.get('chunks_added', 0)} chunks added, "
+                    f"{d.get('chunks_replaced', 0)} replaced "
+                    f"(net {d.get('chunks_net', 0):+d}) · "
+                    f"{len(touched)} pages touched ({span}) · "
+                    f"index {d.get('chunks_before')} → {d.get('chunks_after')} chunks, "
+                    f"vectors {d.get('store_count_before')} → {d.get('store_count_after')}"
+                )
             with st.expander("Raw ingest stats"):
                 st.json(res)
             st.info("Switch to the query tab and ask something about the new document.")

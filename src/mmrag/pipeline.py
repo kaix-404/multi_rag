@@ -108,7 +108,8 @@ def cmd_index(settings: Settings | None = None) -> dict:
 
 def ingest_single_pdf(pdf_path: Path, settings: Settings | None = None, *,
                       embedder=None, store: VectorStore | None = None,
-                      render_dpi: int = 144) -> dict:
+                      render_dpi: int = 144,
+                      before: dict | None = None) -> dict:
     """Incrementally ingest ONE PDF: parse -> chunk -> figure descriptors ->
     embed only its chunks -> upsert into the existing store -> rebuild BM25.
 
@@ -116,6 +117,14 @@ def ingest_single_pdf(pdf_path: Path, settings: Settings | None = None, *,
     retriever's) so no model reload happens and existing vectors are never
     re-embedded. Re-ingesting a file whose doc_id already exists replaces that
     document's chunks and vectors. Returns per-document stats.
+
+    The ``before`` snapshot should be a dict with the keys ``chunks``,
+    ``store_count``, ``doc_count``, ``pages`` (the document's previous page
+    count), ``tables``, ``figures`` and ``text`` (this document's previous
+    chunk counts), captured before this PDF was parsed and keyed by the same
+    doc_id the parser will produce. It is used only to produce a concise
+    ``diff`` summary for the upload response; if omitted, the diff fields are
+    omitted too.
     """
     settings = settings or load_settings()
     t0 = time.perf_counter()
@@ -179,5 +188,46 @@ def ingest_single_pdf(pdf_path: Path, settings: Settings | None = None, *,
         "vlm": vlm_stats,
         "seconds": round(time.perf_counter() - t0, 1),
     }
+
+    diff = None
+    if before is not None:
+        diff = {
+            "chunks_before": before["chunks"],
+            "chunks_after": len(merged),
+            "chunks_added": stats["chunks_added"],
+            "chunks_replaced": stats["chunks_replaced"],
+            "chunks_net": stats["chunks_added"] - stats["chunks_replaced"],
+            "store_count_before": before["store_count"],
+            "store_count_after": store.count(),
+            "doc_count_before": before["doc_count"],
+            "doc_count_after": before["doc_count"] + (0 if stale_ids else 1) \
+                if before.get("doc_count") is not None else None,
+            "pages_before": before.get("pages"),
+            "pages_after": meta["num_pages"],
+            "is_replacement": bool(stale_ids),
+            "pages_touched": sorted({c.page_number for c in new_chunks}),
+            "tables_before": before.get("tables"),
+            "tables_after": (
+                (before.get("tables") or 0)
+                - sum(1 for c in existing if c.doc_id == meta["doc_id"] and c.chunk_type == "table")
+                + stats["tables"]
+            ) if before.get("tables") is not None else None,
+            "figures_before": before.get("figures"),
+            "figures_after": (
+                (before.get("figures") or 0)
+                - sum(1 for c in existing if c.doc_id == meta["doc_id"] and c.chunk_type == "figure")
+                + stats["figures"]
+            ) if before.get("figures") is not None else None,
+            "text_before": before.get("text"),
+            "text_after": (
+                (before.get("text") or 0)
+                - sum(1 for c in existing if c.doc_id == meta["doc_id"] and c.chunk_type == "text")
+                + stats["text"]
+            ) if before.get("text") is not None else None,
+        }
+
+    result = {**stats}
+    if diff:
+        result["diff"] = diff
     print(f"[ingest] done in {stats['seconds']}s: {stats}")
-    return stats
+    return result
