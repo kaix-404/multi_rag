@@ -16,6 +16,13 @@ import httpx
 
 from ..config import Settings
 
+# LLM providers are sometimes flaky (rate limits, 503s, MCP proxy hiccups).
+# Transient 5xx from the model should not turn a live query into a hard 500:
+# retry briefly, then fail fast so the caller can fall back to the
+# extractive path.
+TRANSIENT_STATUS_CODES = {500, 502, 503, 504}
+RETRY_DELAYS_SECONDS = (1.0, 2.0, 3.0)
+
 
 class LLMClient:
     def __init__(self, settings: Settings):
@@ -29,6 +36,38 @@ class LLMClient:
     def available(self) -> bool:
         return bool(self.api_key)
 
+    def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
+        """POST with a bounded retry over transient upstream errors.
+
+        A 503/500/502/504 from a hosted LLM is normally a temporary capacity or
+        routing hiccup, not a bug in the caller, so we retry a few times before
+        raising. Timeouts and connection errors are also retried.
+        """
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate(RETRY_DELAYS_SECONDS, start=1):
+            try:
+                with httpx.Client(timeout=self.timeout) as client:
+                    r = client.request(method, url, **kwargs)
+                    if r.status_code in TRANSIENT_STATUS_CODES:
+                        last_exc = httpx.HTTPStatusError(
+                            f"Transient {r.status_code} from {url}", request=r.request, response=r
+                        )
+                        if attempt < len(RETRY_DELAYS_SECONDS):
+                            import time as _time
+
+                            _time.sleep(delay)
+                            continue
+                    r.raise_for_status()
+                    return r
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                last_exc = exc
+                if attempt < len(RETRY_DELAYS_SECONDS):
+                    import time as _time
+
+                    _time.sleep(delay)
+                    continue
+        raise last_exc if last_exc is not None else RuntimeError(f"request failed: {method} {url}")
+
     def chat(self, messages: list[dict], model: str | None = None,
              temperature: float = 0.0, max_tokens: int = 1024) -> str:
         if not self.available:
@@ -40,11 +79,9 @@ class LLMClient:
             "max_tokens": max_tokens,
         }
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        with httpx.Client(timeout=self.timeout) as client:
-            r = client.post(f"{self.base_url}/chat/completions",
-                            json=payload, headers=headers)
-            r.raise_for_status()
-            data = r.json()
+        r = self._request("POST", f"{self.base_url}/chat/completions",
+                          json=payload, headers=headers)
+        data = r.json()
         return data["choices"][0]["message"]["content"]
 
     def chat_stream(self, messages: list[dict], model: str | None = None,
