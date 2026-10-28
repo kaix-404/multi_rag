@@ -16,6 +16,26 @@ questions with a grounded (optionally vision-capable) LLM — with an
 interactive dual-pane demo, a document-upload traceability diff, and a RAGAS /
 Hit-Rate@5 benchmark against a naive text-only dense baseline.
 
+## Architecture diagrams
+
+```mermaid
+flowchart TD
+  A[Input PDF] --> B((Dual-Stream Parser))
+  B --> C((Hybrid Index Store))
+  C --> D[BM25 sparse vectors]
+  C --> E[Dense vectors]
+  D --> G((Fusion & Reranking))
+  E --> G
+  G --> H((Multimodal Synthesis))
+  H --> I[(Grounded answer + citations)]
+```
+
+See `docs/flowchart.md` for the source and the two-step pipeline
+architecture plus the live query path (Mermaid sources and rendered PNGs):
+
+- `docs/flowchart-1.png` — end-to-end pipeline architecture
+- `docs/flowchart-2.png` — live query path
+
 ## What is in this repository right now
 
 This checkout is a **ready-to-run local demo**, not a blank scaffold.
@@ -46,18 +66,6 @@ This checkout is a **ready-to-run local demo**, not a blank scaffold.
   before the demo behaves the same.
 
 ## Architecture
-
-| Layer | Component | Role |
-|---|---|---|
-| **API & serving** | FastAPI backend (`mmrag serve` / `mmrag ui`) | `GET /health`, `GET /documents`, `GET /documents/{id}/pages/{n}` (bbox overlay images), `GET /figures/{name}`, `POST /query` (streaming + JSON answer with confidence), `POST /documents/upload` (incremental ingest + traceability diff), `GET /telemetry` (last run metrics) |
-| **Ingestion & parsing** | PyMuPDF + pdfplumber | text blocks with bboxes, tables → Markdown grids, figure crops → PNG |
-| Visual encoding | GPT-4o-mini / fallback | synthetic descriptor per figure so charts are indexable |
-| Sparse vectorizer | BM25 (rank_bm25) | exact-match recall for tickers, dates, account figures |
-| Dense vectorizer | BAAI/bge-m3 (1024-d) | semantic recall; hashing-TF-IDF fallback when models unavailable |
-| Hybrid store | Qdrant / local numpy | unified dense search (docker-compose provided) |
-| Reranker | bge-reranker-large / MiniLM fallback | cross-encoder scoring over the fused top-N; heuristic blend fallback |
-| Evaluation | RAGAS-style + Hit Rate@5 | context precision/recall, faithfulness, answer relevance |
-| Frontend | FastAPI + Streamlit | dual-pane query/evidence workspace with bbox overlays |
 
 Every indexed chunk stores provenance `{doc_id, page_number, chunk_type,
 bounding_box, section}` enabling zero-latency highlighting in the demo viewer.
@@ -257,6 +265,9 @@ Project state (not source, rebuild if missing):
 data/corpus/          # ingested PDFs
 data/index/           # chunks.jsonl, bm25.pkl, embedder.pkl
 .venv/                # Python environment with pinned dependencies
+docs/flowchart.md     # Mermaid flowchart sources (see docs/flowchart-1.png)
+docs/flowchart-1.png  # rendered pipeline architecture diagram
+docs/flowchart-2.png  # rendered live query path diagram
 tmp/                   # local scratch: run_guide.txt, startup_commands.txt, backend_start_command.txt
 ```
 
@@ -313,6 +324,7 @@ al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
 - [x] Streamlit + FastAPI demo with dual-pane evidence inspection
 - [x] Academic report + slides (see `report/`)
 - [x] Document-upload traceability diff returned by `POST /documents/upload`
+- [x] Flowchart diagrams in `docs/` (Mermaid source + rendered PNG)
 
 ## Local scratch and convenience files
 
