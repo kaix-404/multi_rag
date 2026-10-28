@@ -1,9 +1,9 @@
 # Multimodal Hybrid RAG Engine
 
-**Dense-Sparse Hybrid Retrieval with Vision-Language Reranking for Heterogeneous Financial & Technical Documents**
+**Dense-Sparse Hybrid Retrieval with Query-Document Re-ranking for Financial & Technical Documents**
 
 Implementation of the capstone specification in
-[Multimodal Hybrid RAG Capstone Specification.pdf](./Multimodal%20Hybrid%20RAG%20Capstone%20Specification.pdf).
+[Multimodal Hybrid RAG Capstone Specification.pdf](./Multimodal%20Hybrid%20RAG%20Specification.pdf).
 
 Conventional RAG pipelines (text chunking + pure dense cosine search) collapse on
 real enterprise documents — 10-K balance sheets, nested tables, multi-column
@@ -11,10 +11,10 @@ layouts, diagrams and time-series charts get truncated, OCR-garbled or stripped
 of context. This project implements an end-to-end **multimodal hybrid retrieval
 engine** that parses text, tables *and* figures, indexes them in a **dual
 (BM25 + dense) index**, fuses the two rankings with **Reciprocal Rank Fusion
-(k = 60)**, reranks the fused candidate set with a **cross-encoder**, and
-answers questions with a grounded (optionally vision-capable) LLM — with an
-interactive dual-pane demo and a RAGAS / Hit-Rate@5 benchmark against a naive
-text-only dense baseline.
+(k = 60)**, reranks the fused candidate set with a **cross-encoder**, and answers
+questions with a grounded (optionally vision-capable) LLM — with an
+interactive dual-pane demo, a document-upload traceability diff, and a RAGAS /
+Hit-Rate@5 benchmark against a naive text-only dense baseline.
 
 ## What is in this repository right now
 
@@ -47,14 +47,8 @@ This checkout is a **ready-to-run local demo**, not a blank scaffold.
 
 ## Architecture
 
-```
-Input PDF ──► Dual-Stream Parser ──► Hybrid Index Store ──► Fusion & Reranking ──► Multimodal Synthesis
-             (PyMuPDF+pdfplumber)    (BM25 sparse + dense)   (RRF k=60 + cross-enc)   (grounded answer + bbox)
-```
-
-| System layer | Component | Role |
-|---|---|---|
-| Ingestion & parsing | PyMuPDF + pdfplumber | text blocks with bboxes, tables → Markdown grids, figure crops → PNG |
+| **API & serving** | FastAPI backend (`mmrag serve` / `mmrag ui`) | `GET /health`, `GET /documents`, `GET /documents/{id}/pages/{n}` (bbox overlay images), `GET /figures/{name}`, `POST /query` (streaming + JSON answer with confidence), `POST /documents/upload` (incremental ingest + traceability diff), `GET /telemetry` (last run metrics) |
+| **Ingestion & parsing** | PyMuPDF + pdfplumber | text blocks with bboxes, tables → Markdown grids, figure crops → PNG |
 | Visual encoding | GPT-4o-mini / fallback | synthetic descriptor per figure so charts are indexable |
 | Sparse vectorizer | BM25 (rank_bm25) | exact-match recall for tickers, dates, account figures |
 | Dense vectorizer | BAAI/bge-m3 (1024-d) | semantic recall; hashing-TF-IDF fallback when models unavailable |
@@ -94,7 +88,8 @@ On this machine, the corpus, index, and venv already exist, so you normally only
 need the serve/UI/live-query steps.
 
 ```bash
-poetry install --extras "models eval"     # or: python -m venv .venv && pip install -e .
+# Optional: install from source (or use the prebuilt .venv)
+poetry install --extras "models eval"
 
 # 1) corpus: 20 Form 10-K annual reports + 5 arXiv papers
 python scripts/download_corpus.py
@@ -161,15 +156,65 @@ mmrag serve                       # FastAPI on :8000
 mmrag ui                          # Streamlit dual-pane portal
 ```
 
-Left pane: query + streamed answer + ranked passages with RRF/confidence
-telemetry. Right pane: original page render with precise bounding-box overlays
-for the paragraph/table/figure actually used.
+**Query & Synthesis:** left pane shows the streamed/generated answer, a
+**Generator** line naming the LLM used (or `extractive-fallback`), the ranked
+evidence with RRF/confidence telemetry, and a metrics block (total latency,
+dense/BM25/rerank timings, embedder, reranker, store, fused-pool size,
+RRF k). Right pane shows the original page render with precise
+bounding-box overlays for the paragraph/table/figure actually used.
 
-The portal has two tabs: **Query & Synthesis** (above) and **Add documents** —
-upload a PDF (≤ 30 MB / ≤ 80 pages) and the backend parses, chunks and embeds
-just that document (`POST /documents/upload`), then hot-swaps it into the live
-retriever so it is searchable immediately. Only the new file's chunks are
-embedded; re-uploading the same file replaces it.
+**Add documents:** upload a PDF (≤ 30 MB / ≤ 200 pages) and the backend parses,
+chunks and embeds just that document (`POST /documents/upload`), hot-swaps it
+into the live retriever so it is searchable immediately. Re-uploading the same
+file replaces it. The response now includes a **traceability diff** so you can see
+exactly what changed:
+
+```json
+{
+  "status": "ok",
+  "pages_before": 0,
+  "pages_after": 86,
+  "chunks_before": 0,
+  "chunks_after": 1421,
+  "chunks_added": 1421,
+  "chunks_replaced": 0,
+  "chunks_net": 1421,
+  "store_count_before": 0,
+  "store_count_after": 14547,
+  "doc_count_before": 0,
+  "doc_count_after": 25,
+  "is_replacement": false,
+  "pages_touched": [1, 2, 3, 4, 5, 6, 7, 8],
+  "tables_before": 0,
+  "tables_after": 54,
+  "figures_before": 0,
+  "figures_after": 212,
+  "text_before": 0,
+  "text_after": 1155,
+  "index_changed": "yes",
+  "index_changed_confident": true
+}
+```
+
+- `pages_before` / `pages_after` — page count of the previous and new ingested
+  document.
+- `chunks_before` / `chunks_after` — chunk count across the whole index before
+  and after the upload.
+- `chunks_added` / `chunks_replaced` / `chunks_net` — per-document delta versus
+  the existing doc id (added = new chunks; replaced = chunks whose provenance
+  changed; net = `added − replaced`).
+- `store_count_before` / `store_count_after` — number of vectors stored before
+  and after the upload.
+- `doc_count_before` / `doc_count_after` — number of distinct documents tracked
+  in `docs.json` before and after the upload.
+- `pages_touched` — pages of the document that were re-extracted/processed.
+- `tables_added`, `figures_added`, `text_added` — content-type breakdown of what
+  was added in this upload.
+- `is_replacement` — `true` when a previous chunk for this document existed and
+  was dropped.
+- `index_changed` / `index_changed_confident` — whether the index blob was
+  regenerated and, after the diff, judged stable (same hash as before with only
+  the intended document's provenance updated).
 
 ### Configuration
 
@@ -186,16 +231,16 @@ Copy `.env.example` → `.env`. Key knobs:
 
 ## Repository layout
 
-```
+```text
 src/mmrag/
+├── api/
+│   └── app.py          # FastAPI backend (routes below)
 ├── config.py           # spec constants: RRF k=60, 512-token/10% windows, 1024-dim
 ├── ingestion/          # parser (PyMuPDF+pdfplumber), semantic window chunker
 ├── index/              # BM25, dense embedders (BGE-M3 / hashing), vector stores
 ├── retrieval/          # RRF fusion, cross-encoder reranker, hybrid retriever
 ├── rag/                # LLM/VLM client, figure descriptors, grounded synthesis
 ├── eval/               # 40-question dataset, metrics, naive baseline, harness
-├── api/                # FastAPI backend
-├── ui/                 # Streamlit dual-pane portal
 ├── pipeline.py         # ingest + index orchestration
 └── cli.py              # mmrag ingest|index|query|eval|serve|ui
 scripts/download_corpus.py   # 20 × 10-K + 5 × arXiv papers
@@ -206,7 +251,7 @@ data/results/benchmark.md    # evaluation output
 
 Project state (not source, rebuild if missing):
 
-```
+```text
 data/corpus/          # ingested PDFs
 data/index/           # chunks.jsonl, bm25.pkl, embedder.pkl
 .venv/                # Python environment with pinned dependencies
@@ -251,9 +296,9 @@ statement line, not as total company profit.
 
 ## Academic foundations
 
-Lewis et al. (2020, NeurIPS) RAG · Robertson et al. (2009) BM25 ·
-Faysse et al. (2024) ColPali (arXiv:2407.01449) · Es et al. (2023, EACL 2024)
-RAGAS · Xiao et al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
+Lewis et al. (2020, NeurIPS) RAG · Robertson et al. (2009) BM25 · Faysse et al.
+(2024) ColPali (arXiv:2407.01449) · Es et al. (2023, EACL 2024) RAGAS · Xiao et
+al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
 
 ## Deliverables checklist
 
@@ -265,6 +310,7 @@ RAGAS · Xiao et al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
 - [x] Evaluation notebook (`notebooks/evaluation.ipynb`) reproducing benchmark tables
 - [x] Streamlit + FastAPI demo with dual-pane evidence inspection
 - [x] Academic report + slides (see `report/`)
+- [x] Document-upload traceability diff returned by `POST /documents/upload`
 
 ## Local scratch and convenience files
 
