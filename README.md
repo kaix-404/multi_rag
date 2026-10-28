@@ -47,6 +47,8 @@ This checkout is a **ready-to-run local demo**, not a blank scaffold.
 
 ## Architecture
 
+| Layer | Component | Role |
+|---|---|---|
 | **API & serving** | FastAPI backend (`mmrag serve` / `mmrag ui`) | `GET /health`, `GET /documents`, `GET /documents/{id}/pages/{n}` (bbox overlay images), `GET /figures/{name}`, `POST /query` (streaming + JSON answer with confidence), `POST /documents/upload` (incremental ingest + traceability diff), `GET /telemetry` (last run metrics) |
 | **Ingestion & parsing** | PyMuPDF + pdfplumber | text blocks with bboxes, tables → Markdown grids, figure crops → PNG |
 | Visual encoding | GPT-4o-mini / fallback | synthetic descriptor per figure so charts are indexable |
@@ -54,6 +56,9 @@ This checkout is a **ready-to-run local demo**, not a blank scaffold.
 | Dense vectorizer | BAAI/bge-m3 (1024-d) | semantic recall; hashing-TF-IDF fallback when models unavailable |
 | Hybrid store | Qdrant / local numpy | unified dense search (docker-compose provided) |
 | Reranker | bge-reranker-large / MiniLM fallback | cross-encoder scoring over the fused top-N; heuristic blend fallback |
+| Evaluation | RAGAS-style + Hit Rate@5 | context precision/recall, faithfulness, answer relevance |
+| Frontend | FastAPI + Streamlit | dual-pane query/evidence workspace with bbox overlays |
+eranker-large / MiniLM fallback | cross-encoder scoring over the fused top-N; heuristic blend fallback |
 | Evaluation | RAGAS-style + Hit Rate@5 | context precision/recall, faithfulness, answer relevance |
 | Frontend | FastAPI + Streamlit | dual-pane query/evidence workspace with bbox overlays |
 
