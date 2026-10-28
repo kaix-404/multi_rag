@@ -58,9 +58,6 @@ This checkout is a **ready-to-run local demo**, not a blank scaffold.
 | Reranker | bge-reranker-large / MiniLM fallback | cross-encoder scoring over the fused top-N; heuristic blend fallback |
 | Evaluation | RAGAS-style + Hit Rate@5 | context precision/recall, faithfulness, answer relevance |
 | Frontend | FastAPI + Streamlit | dual-pane query/evidence workspace with bbox overlays |
-eranker-large / MiniLM fallback | cross-encoder scoring over the fused top-N; heuristic blend fallback |
-| Evaluation | RAGAS-style + Hit Rate@5 | context precision/recall, faithfulness, answer relevance |
-| Frontend | FastAPI + Streamlit | dual-pane query/evidence workspace with bbox overlays |
 
 Every indexed chunk stores provenance `{doc_id, page_number, chunk_type,
 bounding_box, section}` enabling zero-latency highlighting in the demo viewer.
