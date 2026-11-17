@@ -237,15 +237,27 @@ async def query(request: StarletteRequest):
         contexts = [_ctx_dict(i, r) for i, r in enumerate(results, 1)]
 
         def event_stream():
-            for delta in stream_answer(question, results, llm):
-                yield f"data: {json.dumps(dict(type='delta', text=delta), ensure_ascii=True)}\n\n"
-            yield ("data: " + json.dumps(dict(
+            # A chunked body must always be terminated. An exception raised
+            # after the 200 headers are on the wire cannot become an error
+            # response: uvicorn can only abort the connection, which the client
+            # reports as "incomplete chunked read". So nothing here may raise.
+            state: dict = {}
+            try:
+                for delta in stream_answer(question, results, llm, state):
+                    yield f"data: {json.dumps(dict(type='delta', text=delta), ensure_ascii=True)}\n\n"
+            except Exception as exc:  # last-resort guard; stream_answer is safe
+                state.setdefault("llm_error", str(exc))
+                state.setdefault("generator", "error")
+            done = dict(
                 type='done',
-                generator=f"llm:{llm.model}" if llm.available
-                          else "extractive-fallback",
+                generator=state.get("generator") or (
+                    f"llm:{llm.model}" if llm.available else "extractive-fallback"),
                 contexts=contexts,
                 telemetry=tel,
-            ), ensure_ascii=True) + "\n\n")
+            )
+            if state.get("llm_error"):
+                done["llm_error"] = state["llm_error"]
+            yield f"data: {json.dumps(done, ensure_ascii=True)}\n\n"
 
         return StreamingResponse(event_stream(), media_type="text/event-stream; charset=utf-8", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*"})
 

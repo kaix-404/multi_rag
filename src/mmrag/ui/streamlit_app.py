@@ -145,6 +145,9 @@ with tab_query:
             if payload:
                 st.session_state["payload"] = payload
                 st.markdown(f"*Generator:* `{payload.get('generator')}`")
+                if payload.get("llm_error"):
+                    st.warning("Generator unavailable — this answer came from the "
+                               f"extractive fallback. Upstream error: {payload['llm_error']}")
                 st.write(text or "_empty answer_")
 
                 # --- answer-side evidence: which contexts actually supported this answer ---
@@ -197,7 +200,7 @@ with tab_query:
                 "rrf": round(c["rrf_score"], 5),
                 "conf": round(c["rerank_confidence"], 3),
             } for c in payload.get("contexts", [])]
-            st.dataframe(rows, use_container_width=True)
+            st.dataframe(rows, width="stretch")
 
     # ---- right: evidence & inspection ----------------------------------------
     with right:
@@ -220,7 +223,7 @@ with tab_query:
                 ])
                 st.image(img, caption=f"page {ctx['page_number']} — {ctx['chunk_type']} "
                                       f"bbox {tuple(round(v) for v in ctx['bbox'])}",
-                         use_container_width=True)
+                         width="stretch")
             except Exception as exc:
                 st.warning(f"Could not render page: {exc}")
             st.markdown("**Exact passage used**")
@@ -229,7 +232,7 @@ with tab_query:
                 name = ctx["asset_path"].replace("\\", "/").split("/")[-1]
                 try:
                     st.image(api_get(f"/figures/{name}"), caption="cropped figure asset",
-                             use_container_width=True)
+                             width="stretch")
                 except Exception:
                     pass
 
@@ -281,7 +284,7 @@ with tab_add:
         st.dataframe(
             [{"doc_id": d.get("doc_id"), "filename": d.get("filename"),
               "pages": d.get("num_pages")} for d in docs],
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
         )
     except Exception as exc:
         st.warning(f"Could not list documents: {exc}")

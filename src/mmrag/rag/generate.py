@@ -83,12 +83,38 @@ def answer_question(question: str, results: list[RetrievalResult], llm: LLMClien
             "contexts": [_ctx_dict(i, r) for i, r in enumerate(results, 1)]}
 
 
-def stream_answer(question: str, results: list[RetrievalResult], llm: LLMClient):
-    """Yield answer text chunks (LLM streaming, or one-shot fallback)."""
-    if llm.available:
-        yield from llm.chat_stream(build_prompt(question, results))
-    else:
+def stream_answer(question: str, results: list[RetrievalResult], llm: LLMClient,
+                  state: dict | None = None):
+    """Yield answer text chunks (LLM streaming, or one-shot fallback).
+
+    Never raises. A streaming provider can fail after the response has already
+    started (503, dropped connection, truncated upstream body); any such
+    failure is recorded in ``state`` and, when no text has been emitted yet,
+    answered from the extractive fallback instead, so the caller can always
+    finish its own stream with a terminating event.
+    """
+    if not llm.available:
+        if state is not None:
+            state["generator"] = "extractive-fallback"
         yield _extractive_answer(results, question)
+        return
+
+    emitted = False
+    try:
+        for delta in llm.chat_stream(build_prompt(question, results)):
+            emitted = True
+            yield delta
+    except Exception as exc:
+        if state is not None:
+            state["llm_error"] = str(exc)
+            state["generator"] = (f"llm:{llm.model} (truncated)" if emitted
+                                  else "extractive-fallback")
+        if not emitted:
+            yield _extractive_answer(results, question)
+        return
+
+    if state is not None:
+        state["generator"] = f"llm:{llm.model}"
 
 
 def _ctx_dict(i: int, r: RetrievalResult) -> dict:
