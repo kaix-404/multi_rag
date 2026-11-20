@@ -344,3 +344,9 @@ al. (2023) BGE-M3 · Li et al. (2023) bge-reranker.
 These are convenience notes for this checkout and are not required to run the
 project. The canonical commands are the ones shown in the Running-it-locally and
 Repository-layout sections.
+
+## Author
+
+**Kairav Nandi**
+
+(made as a project for my NLP course)
