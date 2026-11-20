@@ -2,9 +2,6 @@
 
 **Dense-Sparse Hybrid Retrieval with Query-Document Re-ranking for Financial & Technical Documents**
 
-Implementation of the capstone specification in
-[Multimodal Hybrid RAG Capstone Specification.pdf](./Multimodal%20Hybrid%20RAG%20Specification.pdf).
-
 Conventional RAG pipelines (text chunking + pure dense cosine search) collapse on
 real enterprise documents — 10-K balance sheets, nested tables, multi-column
 layouts, diagrams and time-series charts get truncated, OCR-garbled or stripped
